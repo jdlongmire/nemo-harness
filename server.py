@@ -42,6 +42,7 @@ import tools.file_tools
 import tools.shell_tools
 import tools.search_tools
 import tools.web_tools
+import tools.planning_tools
 
 load_dotenv(Path(__file__).parent / '.env')
 
@@ -56,6 +57,7 @@ tools.file_tools.register(_sandbox)
 tools.shell_tools.register(_sandbox)
 tools.search_tools.register(_sandbox)
 tools.web_tools.register()
+tools.planning_tools.register()
 
 MAX_TOOL_ITERATIONS = 10
 
@@ -141,8 +143,33 @@ _CAPABILITIES = (
     '- /forget <id> : delete a memory entry\n'
     '- Mode and model switching via UI dropdowns\n'
     '- Conversation save/load/delete, response regeneration, thumbs up/down evaluation\n'
-    '\nYou also have tool-use capabilities for file operations, shell commands, and code search.\n'
-    'Use tools when the user asks you to read, write, edit, search, or run commands.\n'
+    '\nYou also have tool-use capabilities for file operations, shell commands, code search, '
+    'web search/fetch, and planning/task management.\n'
+    'Use tools when the user asks you to read, write, edit, search, run commands, or work through tasks.\n'
+)
+
+_PLANNING_BEHAVIOR = (
+    'Planning and task management:\n'
+    '- For any non-trivial task (research, multi-step work, analysis), create a plan FIRST using create_plan.\n'
+    '- Break complex requests into concrete, ordered steps.\n'
+    '- Update task status as you work: mark tasks in_progress when you start, completed when done, '
+    'blocked when stuck.\n'
+    '- If new work emerges during execution, use add_task to track it.\n'
+    '- Show the user your plan before executing it. This makes your work transparent and reviewable.\n'
+)
+
+_CLARIFICATION_BEHAVIOR = (
+    'Clarification protocol:\n'
+    '- Before diving into a complex or ambiguous request, ask 2-4 clarifying questions.\n'
+    '- Ask when: the scope is unclear, multiple valid interpretations exist, important constraints '
+    'are missing, or the request could go in very different directions.\n'
+    '- Do NOT ask when: the request is simple, specific, and unambiguous.\n'
+    '- Frame questions concisely. Number them. Wait for answers before proceeding.\n'
+    '- Example: "Before I start, a few questions:\\n'
+    '1. Do you want X or Y approach?\\n'
+    '2. Should I prioritize A or B?\\n'
+    '3. Any constraints I should know about?"\n'
+    '- After receiving answers, create a plan that reflects the clarified requirements, then execute.\n'
 )
 
 _BEHAVIORAL_CORE = (
@@ -175,6 +202,8 @@ MODES = {
             'run shell commands, search codebases, fetch web pages, and remember things across conversations."\n\n'
             + _CAPABILITIES + '\n'
             + _BEHAVIORAL_CORE + '\n'
+            + _CLARIFICATION_BEHAVIOR + '\n'
+            + _PLANNING_BEHAVIOR + '\n'
             'Mode: Default. Balanced tone. Provide clear, accurate, concise responses.'
         ),
         'temperature': 0.7,
@@ -187,6 +216,8 @@ MODES = {
             'You are Nemo, the ThinxAI technical assistant running on NVIDIA Nemotron.\n\n'
             + _CAPABILITIES + '\n'
             + _BEHAVIORAL_CORE + '\n'
+            + _CLARIFICATION_BEHAVIOR + '\n'
+            + _PLANNING_BEHAVIOR + '\n'
             'Mode: Technical. Prioritize accuracy over brevity. Include code examples when relevant. '
             'Use structured formatting (headers, lists, code blocks). '
             'Distinguish established facts from inferences.'
@@ -201,6 +232,8 @@ MODES = {
             'You are Nemo, the ThinxAI creative assistant running on NVIDIA Nemotron.\n\n'
             + _CAPABILITIES + '\n'
             + _BEHAVIORAL_CORE + '\n'
+            + _CLARIFICATION_BEHAVIOR + '\n'
+            + _PLANNING_BEHAVIOR + '\n'
             'Mode: Creative. Write with vivid language, varied sentence structure, and narrative flow. '
             'Take creative risks. Explore ideas from unexpected angles.'
         ),
@@ -214,6 +247,8 @@ MODES = {
             'You are Nemo, the ThinxAI research assistant running on NVIDIA Nemotron.\n\n'
             + _CAPABILITIES + '\n'
             + _BEHAVIORAL_CORE + '\n'
+            + _CLARIFICATION_BEHAVIOR + '\n'
+            + _PLANNING_BEHAVIOR + '\n'
             'Mode: Research. Analyze claims carefully. Distinguish evidence from inference. '
             'Cite reasoning steps explicitly. Flag assumptions. '
             'When uncertain, state so clearly rather than speculating.'
