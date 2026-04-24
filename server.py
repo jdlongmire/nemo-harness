@@ -43,6 +43,8 @@ import tools.shell_tools
 import tools.search_tools
 import tools.web_tools
 import tools.planning_tools
+import tools.gitea_tools
+import tools.rag_tools
 
 load_dotenv(Path(__file__).parent / '.env')
 
@@ -58,6 +60,8 @@ tools.shell_tools.register(_sandbox)
 tools.search_tools.register(_sandbox)
 tools.web_tools.register()
 tools.planning_tools.register()
+tools.gitea_tools.register()
+tools.rag_tools.register()
 
 MAX_TOOL_ITERATIONS = 10
 
@@ -1086,6 +1090,10 @@ def create_app() -> web.Application:
 
     # Web Fetch
     app.router.add_post('/api/fetch', handle_fetch)
+
+    # Gitea webhook indexer
+    from indexer import create_indexer_app
+    app.add_subapp('/indexer/', create_indexer_app())
 
     # Static files
     app.router.add_get('/', lambda r: web.FileResponse(WEB_DIR / 'index.html'))

@@ -1,0 +1,97 @@
+##
+## Nemo Harness - Self-contained stack for air-gapped deployment
+##
+## Services:
+##   gitea    - Local Git server (port 3000)
+##   ollama   - Local LLM + embeddings (port 11434)
+##   harness  - Chat interface + RAG + indexer (port 8091)
+##
+## Usage:
+##   docker compose up -d
+##
+## Air-gapped: pre-pull images, pre-download ollama models,
+##   and vendor Python deps (see scripts/vendor-deps.sh)
+##
+
+services:
+
+  gitea:
+    image: gitea/gitea:1.22
+    container_name: nemo-gitea
+    environment:
+      - USER_UID=1000
+      - USER_GID=1000
+      - GITEA__server__ROOT_URL=http://localhost:3000
+      - GITEA__server__HTTP_PORT=3000
+      - GITEA__database__DB_TYPE=sqlite3
+      - GITEA__service__DISABLE_REGISTRATION=false
+      - GITEA__service__REQUIRE_SIGNIN_VIEW=false
+      - GITEA__webhook__ALLOWED_HOST_LIST=harness
+    volumes:
+      - gitea_data:/data
+      - gitea_config:/etc/gitea
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    networks:
+      - nemo
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: nemo-ollama
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "11434:11434"
+    restart: unless-stopped
+    networks:
+      - nemo
+    # For GPU support, uncomment:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+  harness:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nemo-harness
+    env_file: .env
+    environment:
+      - GITEA_URL=http://gitea:3000
+      - OLLAMA_URL=http://ollama:11434
+      - CHROMA_DIR=/app/chromadb_data
+    volumes:
+      - harness_data:/app/chromadb_data
+      - harness_plans:/app/plans
+      - harness_traces:/app/traces
+      - harness_memory:/app/memory
+      - harness_conversations:/app/conversations
+      - ./certs:/app/certs:ro
+    ports:
+      - "8091:8091"
+      - "9090:9090"
+    depends_on:
+      - gitea
+      - ollama
+    restart: unless-stopped
+    networks:
+      - nemo
+
+volumes:
+  gitea_data:
+  gitea_config:
+  ollama_data:
+  harness_data:
+  harness_plans:
+  harness_traces:
+  harness_memory:
+  harness_conversations:
+
+networks:
+  nemo:
+    driver: bridge
