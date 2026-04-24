@@ -19,6 +19,7 @@ import asyncio
 import json
 import logging
 import os
+import ssl
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -379,17 +380,37 @@ async def serve_web_file(request: web.Request) -> web.Response:
     return web.FileResponse(WEB_DIR / 'index.html')
 
 
-def main():
+async def run_server():
     parser = argparse.ArgumentParser(description='Nemo Harness - Nemotron Chat Server')
     parser.add_argument('--port', type=int, default=int(os.getenv('NEMO_PORT', '8090')))
     parser.add_argument('--host', default=os.getenv('NEMO_HOST', '0.0.0.0'))
     args = parser.parse_args()
 
     app = create_app()
-    logger.info(f'Starting Nemo Harness on {args.host}:{args.port}')
+    runner = web.AppRunner(app)
+    await runner.setup()
+
+    # TLS via Tailscale certs
+    cert_dir = BASE_DIR / 'certs'
+    cert_file = cert_dir / 'thinxai-workstation.crt'
+    key_file = cert_dir / 'thinxai-workstation.key'
+
+    ssl_ctx = None
+    if cert_file.exists() and key_file.exists():
+        ssl_ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        ssl_ctx.load_cert_chain(str(cert_file), str(key_file))
+        logger.info("TLS enabled via Tailscale certs")
+
+    site = web.TCPSite(runner, args.host, args.port, ssl_context=ssl_ctx)
+    await site.start()
+
+    proto = 'https' if ssl_ctx else 'http'
+    logger.info(f'Nemo Harness running at {proto}://{args.host}:{args.port}')
     logger.info(f'Model: {CFG["model"]} @ {CFG["api_base"]}')
-    web.run_app(app, host=args.host, port=args.port)
+
+    while True:
+        await asyncio.sleep(3600)
 
 
 if __name__ == '__main__':
-    main()
+    asyncio.run(run_server())
