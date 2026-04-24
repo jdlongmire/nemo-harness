@@ -517,6 +517,12 @@
                 const data = await res.json();
                 if (data.status === 'switched') {
                     currentMode = modeSelect.value;
+                    // Update model dropdown to mode's preferred model
+                    if (data.model) {
+                        currentModel = data.model;
+                        const modelOpt = Array.from(modelSelect.options).find(o => o.value === data.model);
+                        if (modelOpt) modelOpt.selected = true;
+                    }
                     addMessage(`Mode switched to: ${data.name}`, 'system-action');
                 }
             } catch (e) {}
@@ -1059,18 +1065,26 @@
         }
 
         // ===== API: MODELS =====
+        const DEFAULT_MODEL = 'nvidia/nemotron-3-nano-4b';
+
         async function loadModels() {
             try {
                 const res = await fetch(`${API_BASE}/api/models`);
                 const data = await res.json();
                 const models = data.data || [];
                 modelSelect.innerHTML = '';
+                const preferredModel = currentModel || DEFAULT_MODEL;
                 for (const m of models) {
                     const opt = document.createElement('option');
                     opt.value = m.id;
                     opt.textContent = m.id;
-                    if (m.id === currentModel) opt.selected = true;
+                    if (m.id === preferredModel) opt.selected = true;
                     modelSelect.appendChild(opt);
+                }
+                // If no model matched, select the default if available
+                if (!modelSelect.value || modelSelect.value === '--') {
+                    const defaultOpt = Array.from(modelSelect.options).find(o => o.value === DEFAULT_MODEL);
+                    if (defaultOpt) defaultOpt.selected = true;
                 }
             } catch (e) {
                 modelSelect.innerHTML = '<option>--</option>';

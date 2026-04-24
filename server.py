@@ -46,24 +46,31 @@ logging.basicConfig(
 class CorrelatedLogger:
     """Logger adapter that prefixes correlation ID to every message."""
 
-    def __init__(self, base_logger, correlation_id: str):
+    def __init__(self, base_logger, correlation_id: str, model: str = ''):
         self._logger = base_logger
         self._cid = correlation_id
+        self._model = model
 
     def info(self, msg, *args, **kwargs):
-        self._logger.info(f'[{self._cid}] {msg}', *args, **kwargs)
+        prefix = f'[{self._cid}]' if not self._model else f'[{self._cid}] [{self._model}]'
+        self._logger.info(f'{prefix} {msg}', *args, **kwargs)
 
     def warning(self, msg, *args, **kwargs):
-        self._logger.warning(f'[{self._cid}] {msg}', *args, **kwargs)
+        prefix = f'[{self._cid}]' if not self._model else f'[{self._cid}] [{self._model}]'
+        self._logger.warning(f'{prefix} {msg}', *args, **kwargs)
 
     def error(self, msg, *args, **kwargs):
-        self._logger.error(f'[{self._cid}] {msg}', *args, **kwargs)
+        prefix = f'[{self._cid}]' if not self._model else f'[{self._cid}] [{self._model}]'
+        self._logger.error(f'{prefix} {msg}', *args, **kwargs)
 
 
 # --- Behavioral Mode System ---
+DEFAULT_MODEL = 'nvidia/nemotron-3-nano-4b'
+
 MODES = {
     'default': {
         'name': 'Default',
+        'model': DEFAULT_MODEL,
         'system_prompt': (
             'You are a helpful AI assistant powered by NVIDIA Nemotron. '
             'You provide clear, accurate, and concise responses. '
@@ -74,6 +81,7 @@ MODES = {
     },
     'technical': {
         'name': 'Technical',
+        'model': DEFAULT_MODEL,
         'system_prompt': (
             'You are a precise technical assistant powered by NVIDIA Nemotron. '
             'Prioritize accuracy over brevity. Include code examples when relevant. '
@@ -85,6 +93,7 @@ MODES = {
     },
     'creative': {
         'name': 'Creative',
+        'model': DEFAULT_MODEL,
         'system_prompt': (
             'You are a creative writing assistant powered by NVIDIA Nemotron. '
             'Write with vivid language, varied sentence structure, and narrative flow. '
@@ -95,6 +104,7 @@ MODES = {
     },
     'research': {
         'name': 'Research',
+        'model': DEFAULT_MODEL,
         'system_prompt': (
             'You are a research assistant powered by NVIDIA Nemotron. '
             'Analyze claims carefully. Distinguish evidence from inference. '
@@ -109,7 +119,7 @@ MODES = {
 # --- Runtime Config ---
 CFG = {
     'api_base': os.getenv('NEMO_API_BASE', 'http://100.125.50.95:1237'),
-    'model': os.getenv('NEMO_MODEL', 'nvidia/nemotron-3-nano-4b'),
+    'model': os.getenv('NEMO_MODEL', DEFAULT_MODEL),
     'max_history': int(os.getenv('NEMO_MAX_HISTORY', '50')),
     'mode': 'default',
     'custom_system_prompt': None,  # overrides mode prompt when set
@@ -220,12 +230,13 @@ def process_action_tags(text: str, clog: CorrelatedLogger) -> tuple[str, list[st
     return text.strip(), actions
 
 
-def log_token_usage(correlation_id: str, model: str, prompt_tokens: int, completion_tokens: int):
+def log_token_usage(correlation_id: str, model: str, prompt_tokens: int, completion_tokens: int, mode: str = ''):
     """Append token usage to JSONL log."""
     entry = {
         'timestamp': datetime.now(timezone.utc).isoformat(),
         'correlation_id': correlation_id,
         'model': model,
+        'mode': mode or CFG['mode'],
         'prompt_tokens': prompt_tokens,
         'completion_tokens': completion_tokens,
         'total_tokens': prompt_tokens + completion_tokens,
@@ -277,7 +288,7 @@ async def handle_models(request: web.Request) -> web.Response:
 async def handle_modes(request: web.Request) -> web.Response:
     """List available modes or switch mode."""
     if request.method == 'GET':
-        modes_list = {k: {'name': v['name'], 'active': k == CFG['mode']} for k, v in MODES.items()}
+        modes_list = {k: {'name': v['name'], 'model': v.get('model', DEFAULT_MODEL), 'active': k == CFG['mode']} for k, v in MODES.items()}
         return web.json_response(modes_list)
 
     body = await request.json()
@@ -286,9 +297,10 @@ async def handle_modes(request: web.Request) -> web.Response:
         return web.json_response({'error': f'Unknown mode: {mode_key}', 'available': list(MODES.keys())}, status=400)
 
     CFG['mode'] = mode_key
+    CFG['model'] = MODES[mode_key].get('model', DEFAULT_MODEL)
     CFG['custom_system_prompt'] = None  # clear override when switching modes
-    logger.info('Mode switched to: %s', mode_key)
-    return web.json_response({'status': 'switched', 'mode': mode_key, 'name': MODES[mode_key]['name']})
+    logger.info('Mode switched to: %s (model=%s)', mode_key, CFG['model'])
+    return web.json_response({'status': 'switched', 'mode': mode_key, 'name': MODES[mode_key]['name'], 'model': CFG['model']})
 
 
 async def handle_history(request: web.Request) -> web.Response:
@@ -393,7 +405,7 @@ def _emit_event(job: dict, event_type: str, data: dict):
 async def _process_chat_job(job_id: str, model: str, messages: list, temperature: float, max_tokens: int, cid: str):
     """Process inference request and emit SSE events to job buffer."""
     job = jobs[job_id]
-    clog = CorrelatedLogger(logger, cid)
+    clog = CorrelatedLogger(logger, cid, model=model)
     start_time = time.monotonic()
 
     _emit_event(job, 'status', {'message': f'Sending to {model}...'})
