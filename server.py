@@ -20,6 +20,7 @@ import json
 import logging
 import os
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 import aiohttp
@@ -42,12 +43,19 @@ CFG = {
 # --- In-memory conversation history (single user) ---
 conversation: list[dict] = []
 
-WEB_DIR = Path(__file__).parent / 'web'
+BASE_DIR = Path(__file__).parent
+WEB_DIR = BASE_DIR / 'web'
+CONVERSATIONS_DIR = BASE_DIR / 'conversations'
+EVALUATIONS_FILE = BASE_DIR / 'evaluations.jsonl'
 
+# Ensure conversations directory exists
+CONVERSATIONS_DIR.mkdir(exist_ok=True)
+
+
+# ===== EXISTING ENDPOINTS =====
 
 async def handle_status(request: web.Request) -> web.Response:
     """Health check and model info."""
-    # Quick probe of the upstream API
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(f'{CFG["api_base"]}/v1/models', timeout=aiohttp.ClientTimeout(total=3)) as resp:
@@ -80,6 +88,20 @@ async def handle_clear(request: web.Request) -> web.Response:
     return web.json_response({'status': 'cleared'})
 
 
+async def handle_history_restore(request: web.Request) -> web.Response:
+    """Restore conversation history from client (used when loading a saved conversation)."""
+    body = await request.json()
+    messages = body.get('messages', [])
+    conversation.clear()
+    for msg in messages:
+        if msg.get('role') in ('user', 'assistant'):
+            conversation.append({'role': msg['role'], 'content': msg.get('content', '')})
+    # Trim to max_history
+    while len(conversation) > CFG['max_history']:
+        conversation.pop(0)
+    return web.json_response({'status': 'restored', 'count': len(conversation)})
+
+
 async def handle_chat(request: web.Request) -> web.Response:
     """Send a message and stream the response via SSE."""
     body = await request.json()
@@ -90,7 +112,13 @@ async def handle_chat(request: web.Request) -> web.Response:
     # Allow model override per request
     model = body.get('model', CFG['model'])
 
-    conversation.append({'role': 'user', 'content': user_message})
+    # If regenerating, remove the last assistant message and re-use the user message
+    if body.get('regenerate'):
+        # Remove the last assistant message from history if present
+        if conversation and conversation[-1]['role'] == 'assistant':
+            conversation.pop()
+    else:
+        conversation.append({'role': 'user', 'content': user_message})
 
     # Build messages for the API
     messages = [{'role': 'system', 'content': CFG['system_prompt']}]
@@ -200,17 +228,141 @@ async def handle_config(request: web.Request) -> web.Response:
     return web.json_response({'status': 'updated'})
 
 
+# ===== CONVERSATION PERSISTENCE =====
+
+async def handle_conversations_save(request: web.Request) -> web.Response:
+    """Save or update a conversation."""
+    body = await request.json()
+    convo_id = body.get('id')
+    if not convo_id:
+        return web.json_response({'error': 'Missing conversation id'}, status=400)
+
+    # Sanitize ID to prevent path traversal
+    safe_id = ''.join(c for c in convo_id if c.isalnum() or c in '-_')
+    if not safe_id:
+        return web.json_response({'error': 'Invalid conversation id'}, status=400)
+
+    messages = body.get('messages', [])
+    title = body.get('title', '')
+    if not title and messages:
+        first_user = next((m for m in messages if m.get('role') == 'user'), None)
+        if first_user:
+            title = first_user['content'][:50]
+
+    now = datetime.now(timezone.utc).isoformat()
+    filepath = CONVERSATIONS_DIR / f'{safe_id}.json'
+
+    # Load existing to preserve created timestamp
+    created = now
+    if filepath.exists():
+        try:
+            existing = json.loads(filepath.read_text())
+            created = existing.get('created', now)
+        except Exception:
+            pass
+
+    data = {
+        'id': safe_id,
+        'title': title,
+        'messages': messages,
+        'created': created,
+        'updated': now,
+    }
+
+    filepath.write_text(json.dumps(data, indent=2))
+    return web.json_response({'status': 'saved', 'id': safe_id})
+
+
+async def handle_conversations_list(request: web.Request) -> web.Response:
+    """List all saved conversations."""
+    convos = []
+    for f in sorted(CONVERSATIONS_DIR.glob('*.json'), key=lambda p: p.stat().st_mtime, reverse=True):
+        try:
+            data = json.loads(f.read_text())
+            convos.append({
+                'id': data.get('id', f.stem),
+                'title': data.get('title', 'Untitled'),
+                'created': data.get('created', ''),
+                'updated': data.get('updated', ''),
+                'message_count': len(data.get('messages', [])),
+            })
+        except Exception:
+            continue
+    return web.json_response(convos)
+
+
+async def handle_conversation_get(request: web.Request) -> web.Response:
+    """Load a specific conversation."""
+    convo_id = request.match_info['id']
+    safe_id = ''.join(c for c in convo_id if c.isalnum() or c in '-_')
+    filepath = CONVERSATIONS_DIR / f'{safe_id}.json'
+
+    if not filepath.exists():
+        return web.json_response({'error': 'Conversation not found'}, status=404)
+
+    try:
+        data = json.loads(filepath.read_text())
+        return web.json_response(data)
+    except Exception as e:
+        return web.json_response({'error': str(e)}, status=500)
+
+
+async def handle_conversation_delete(request: web.Request) -> web.Response:
+    """Delete a conversation."""
+    convo_id = request.match_info['id']
+    safe_id = ''.join(c for c in convo_id if c.isalnum() or c in '-_')
+    filepath = CONVERSATIONS_DIR / f'{safe_id}.json'
+
+    if filepath.exists():
+        filepath.unlink()
+        return web.json_response({'status': 'deleted'})
+    return web.json_response({'error': 'Not found'}, status=404)
+
+
+# ===== EVALUATION ENDPOINT =====
+
+async def handle_evaluate(request: web.Request) -> web.Response:
+    """Accept thumbs up/down evaluations, append to evaluations.jsonl."""
+    body = await request.json()
+    entry = {
+        'timestamp': datetime.now(timezone.utc).isoformat(),
+        'score': body.get('score', 0),
+        'session_id': body.get('session_id', ''),
+        'message_preview': body.get('message_preview', ''),
+        'model': CFG['model'],
+    }
+
+    try:
+        with open(EVALUATIONS_FILE, 'a') as f:
+            f.write(json.dumps(entry) + '\n')
+    except Exception as e:
+        logger.error(f'Failed to write evaluation: {e}')
+        return web.json_response({'error': str(e)}, status=500)
+
+    return web.json_response({'status': 'recorded'})
+
+
+# ===== APP SETUP =====
+
 def create_app() -> web.Application:
     app = web.Application()
 
-    # API routes
+    # API routes - existing
     app.router.add_get('/api/status', handle_status)
     app.router.add_get('/api/models', handle_models)
     app.router.add_get('/api/history', handle_history)
+    app.router.add_post('/api/history/restore', handle_history_restore)
     app.router.add_post('/api/clear', handle_clear)
     app.router.add_post('/api/chat', handle_chat)
     app.router.add_get('/api/config', handle_config)
     app.router.add_post('/api/config', handle_config)
+
+    # API routes - new
+    app.router.add_post('/api/conversations', handle_conversations_save)
+    app.router.add_get('/api/conversations', handle_conversations_list)
+    app.router.add_get('/api/conversations/{id}', handle_conversation_get)
+    app.router.add_delete('/api/conversations/{id}', handle_conversation_delete)
+    app.router.add_post('/api/evaluate', handle_evaluate)
 
     # Static files
     app.router.add_get('/', lambda r: web.FileResponse(WEB_DIR / 'index.html'))

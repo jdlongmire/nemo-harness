@@ -1,0 +1,10 @@
+{
+  "name": "Nemo Harness",
+  "short_name": "Nemo",
+  "description": "NVIDIA Nemotron Chat Interface",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a1a2e",
+  "theme_color": "#0d2540",
+  "icons": []
+}
