@@ -16,16 +16,19 @@ Usage:
 
 import argparse
 import asyncio
+import ipaddress
 import json
 import logging
 import os
 import re
 import secrets
+import socket
 import ssl
 import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import urlparse
 
 import aiohttp
 from aiohttp import web
@@ -184,6 +187,41 @@ ACTION_REMEMBER_RE = re.compile(
 )
 
 INFERENCE_TIMEOUT = 120  # seconds
+
+# --- Web Fetch Config ---
+FETCH_TIMEOUT = 15  # seconds
+FETCH_MAX_BYTES = 500 * 1024  # 500 KB
+
+
+def _is_private_ip(hostname: str) -> bool:
+    """Check if a hostname resolves to a private/reserved IP address."""
+    try:
+        infos = socket.getaddrinfo(hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
+        for family, _, _, _, sockaddr in infos:
+            ip = ipaddress.ip_address(sockaddr[0])
+            if ip.is_private or ip.is_loopback or ip.is_reserved or ip.is_link_local:
+                return True
+    except (socket.gaierror, ValueError):
+        return True  # can't resolve = deny
+    return False
+
+
+def _strip_html_tags(html: str) -> str:
+    """Extract readable text from HTML by stripping tags."""
+    html = re.sub(r'<script[^>]*>.*?</script>', '', html, flags=re.DOTALL | re.IGNORECASE)
+    html = re.sub(r'<style[^>]*>.*?</style>', '', html, flags=re.DOTALL | re.IGNORECASE)
+    html = re.sub(r'<head[^>]*>.*?</head>', '', html, flags=re.DOTALL | re.IGNORECASE)
+    html = re.sub(r'<nav[^>]*>.*?</nav>', '', html, flags=re.DOTALL | re.IGNORECASE)
+    html = re.sub(r'<footer[^>]*>.*?</footer>', '', html, flags=re.DOTALL | re.IGNORECASE)
+    html = re.sub(r'<[^>]+>', ' ', html)
+    html = re.sub(r'&nbsp;', ' ', html)
+    html = re.sub(r'&amp;', '&', html)
+    html = re.sub(r'&lt;', '<', html)
+    html = re.sub(r'&gt;', '>', html)
+    html = re.sub(r'&quot;', '"', html)
+    html = re.sub(r'&#39;', "'", html)
+    html = re.sub(r'\s+', ' ', html)
+    return html.strip()
 
 
 def get_effective_system_prompt() -> str:
@@ -721,6 +759,88 @@ async def handle_evaluate(request: web.Request) -> web.Response:
     return web.json_response({'status': 'recorded'})
 
 
+# ===== WEB FETCH =====
+
+async def handle_fetch(request: web.Request) -> web.Response:
+    """Fetch a URL server-side and return its text content."""
+    cid = str(uuid.uuid4())[:8]
+    clog = CorrelatedLogger(logger, cid)
+
+    body = await request.json()
+    url = body.get('url', '').strip()
+    if not url:
+        return web.json_response({'error': 'Missing url'}, status=400)
+
+    # Validate URL scheme
+    parsed = urlparse(url)
+    if parsed.scheme not in ('http', 'https'):
+        clog.warning('Fetch rejected: invalid scheme %s', parsed.scheme)
+        return web.json_response({'error': 'Only http and https URLs are allowed'}, status=400)
+
+    if not parsed.hostname:
+        return web.json_response({'error': 'Invalid URL'}, status=400)
+
+    # Block private/local IPs
+    if _is_private_ip(parsed.hostname):
+        clog.warning('Fetch rejected: private IP for %s', parsed.hostname)
+        return web.json_response({'error': 'Access to private/local addresses is not allowed'}, status=403)
+
+    clog.info('Fetch started: %s', url)
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                url,
+                timeout=aiohttp.ClientTimeout(total=FETCH_TIMEOUT),
+                max_redirects=5,
+                headers={'User-Agent': 'NemoHarness/1.0'},
+            ) as resp:
+                if resp.status != 200:
+                    clog.warning('Fetch HTTP %d for %s', resp.status, url)
+                    return web.json_response({
+                        'error': f'HTTP {resp.status}',
+                        'url': url,
+                    }, status=502)
+
+                content_type = resp.content_type or 'application/octet-stream'
+
+                # Read with size limit
+                raw = await resp.content.read(FETCH_MAX_BYTES + 1)
+                truncated = len(raw) > FETCH_MAX_BYTES
+                if truncated:
+                    raw = raw[:FETCH_MAX_BYTES]
+
+                # Detect encoding
+                encoding = resp.charset or 'utf-8'
+                try:
+                    text = raw.decode(encoding, errors='replace')
+                except (LookupError, UnicodeDecodeError):
+                    text = raw.decode('utf-8', errors='replace')
+
+                # Strip HTML tags for html content
+                if 'html' in content_type:
+                    text = _strip_html_tags(text)
+
+                clog.info('Fetch complete: %s (%s, %d chars, truncated=%s)',
+                          url, content_type, len(text), truncated)
+
+                return web.json_response({
+                    'url': url,
+                    'content_type': content_type,
+                    'content': text,
+                    'truncated': truncated,
+                })
+
+    except asyncio.TimeoutError:
+        clog.warning('Fetch timeout for %s', url)
+        return web.json_response({'error': f'Timeout after {FETCH_TIMEOUT}s', 'url': url}, status=504)
+    except aiohttp.InvalidURL:
+        return web.json_response({'error': 'Invalid URL format', 'url': url}, status=400)
+    except aiohttp.ClientError as e:
+        clog.warning('Fetch error for %s: %s', url, e)
+        return web.json_response({'error': f'Fetch failed: {e}', 'url': url}, status=502)
+
+
 # ===== APP SETUP =====
 
 def create_app() -> web.Application:
@@ -755,6 +875,9 @@ def create_app() -> web.Application:
 
     # Evaluation
     app.router.add_post('/api/evaluate', handle_evaluate)
+
+    # Web Fetch
+    app.router.add_post('/api/fetch', handle_fetch)
 
     # Static files
     app.router.add_get('/', lambda r: web.FileResponse(WEB_DIR / 'index.html'))

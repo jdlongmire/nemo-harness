@@ -267,6 +267,21 @@
             display: flex; align-items: center; justify-content: center;
         }
         #clear-btn:hover { border-color: #f87171; color: #f87171; }
+        #fetch-btn {
+            background: none; border: 1px solid #333; color: #888; border-radius: 50%;
+            width: 40px; height: 40px; min-width: 40px; font-size: 16px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+        }
+        #fetch-btn:hover { border-color: #60a5fa; color: #60a5fa; }
+        #fetch-btn.fetching { border-color: #fbbf24; color: #fbbf24; animation: pulse 1s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .message.fetch-context { background: rgba(96,165,250,0.08); border-left: 3px solid #60a5fa; align-self: flex-start; font-size: 12px; color: #93c5fd; max-width: 90%; padding: 6px 10px; }
+        .fetch-context-header { font-weight: 600; margin-bottom: 4px; color: #60a5fa; font-size: 11px; }
+        .fetch-context-body { max-height: 200px; overflow-y: auto; white-space: pre-wrap; word-break: break-word; line-height: 1.4; }
+        .fetch-context-meta { font-size: 10px; color: #666; margin-top: 4px; }
+        body.light .message.fetch-context { background: rgba(2,132,199,0.06); color: #0369a1; }
+        body.light .fetch-context-header { color: #0284c7; }
+        body.light #fetch-btn:hover { border-color: #0284c7; color: #0284c7; }
 
         /* ===== IMAGE MODAL ===== */
         .image-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 1000; justify-content: center; align-items: center; cursor: pointer; }
@@ -395,7 +410,8 @@
 
     <div id="input-area">
         <button id="clear-btn" title="Clear conversation">&#128465;</button>
-        <textarea id="message-input" placeholder="Message Nemotron..." rows="1"></textarea>
+        <button id="fetch-btn" title="Fetch URL content (/fetch URL)">&#127760;</button>
+        <textarea id="message-input" placeholder="Message Nemotron... (use /fetch URL to import web content)" rows="1"></textarea>
         <button id="send-btn" disabled>&#10148;</button>
     </div>
 
@@ -426,6 +442,7 @@
         const imageModal = document.getElementById('image-modal');
         const modalImg = imageModal.querySelector('img');
         const muteToggle = document.getElementById('mute-toggle');
+        const fetchBtn = document.getElementById('fetch-btn');
 
         // ===== STATE =====
         let isSending = false;
@@ -727,6 +744,59 @@
             chat.innerHTML = ''; turnIndex = 0; currentConvoId = null; renderConvoList();
         });
 
+        // ===== FETCH URL =====
+        async function fetchUrl(url) {
+            fetchBtn.classList.add('fetching');
+            const statusMsg = addMessage(`Fetching: ${url}...`, 'system-action');
+            try {
+                const res = await fetch(`${API_BASE}/api/fetch`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url })
+                });
+                const data = await res.json();
+                statusMsg.remove();
+                if (!res.ok) {
+                    addMessage(`Fetch failed: ${data.error || 'Unknown error'}`, 'system-action');
+                    return;
+                }
+                // Show fetched content as a context block
+                const msg = document.createElement('div');
+                msg.className = 'message fetch-context';
+                const preview = data.content.length > 2000 ? data.content.substring(0, 2000) + '...' : data.content;
+                msg.innerHTML = `<div class="fetch-context-header">Fetched: ${escapeHtml(data.url)}</div>`
+                    + `<div class="fetch-context-body">${escapeHtml(preview)}</div>`
+                    + `<div class="fetch-context-meta">${escapeHtml(data.content_type)} | ${data.content.length.toLocaleString()} chars${data.truncated ? ' (truncated)' : ''}</div>`;
+                chat.appendChild(msg);
+                chat.scrollTop = chat.scrollHeight;
+
+                // Inject into conversation context as a user message
+                const contextText = `[Fetched content from ${data.url}]\n\n${data.content}`;
+                await fetch(`${API_BASE}/api/history/restore`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        messages: [...getCurrentMessages().filter(m => m.role === 'user' || m.role === 'assistant'),
+                                   { role: 'user', content: contextText }]
+                    })
+                });
+                // Also push to local conversation array via chat endpoint won't work,
+                // so we add as a user message that the model will see
+                addMessage(contextText, 'user');
+                autoSaveConversation();
+            } catch (e) {
+                statusMsg.remove();
+                addMessage(`Fetch error: ${e.message}`, 'system-action');
+            } finally {
+                fetchBtn.classList.remove('fetching');
+            }
+        }
+
+        fetchBtn.addEventListener('click', () => {
+            const url = prompt('Enter URL to fetch:');
+            if (url && url.trim()) fetchUrl(url.trim());
+        });
+
         // ===== UTILITIES =====
         function escapeHtml(str) {
             const div = document.createElement('div');
@@ -876,6 +946,15 @@
             input.value = '';
             input.style.height = 'auto';
             sendBtn.disabled = true;
+
+            // Handle /fetch command
+            const fetchMatch = text.match(/^\/fetch\s+(\S+)/);
+            if (fetchMatch) {
+                await fetchUrl(fetchMatch[1]);
+                sendBtn.disabled = !input.value.trim();
+                return;
+            }
+
             addMessage(text, 'user');
             pendingEditTurn = null;
             await doSendMessage(text, false);
