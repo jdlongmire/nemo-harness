@@ -144,7 +144,7 @@ def register():
         parameters={
             'name': {'type': 'string', 'description': 'Short plan name (alphanumeric, hyphens, underscores)'},
             'goal': {'type': 'string', 'description': 'What this plan aims to accomplish'},
-            'tasks': {'type': 'string', 'description': 'Pipe-separated list of tasks, e.g. "Research topic | Draft outline | Write content"'},
+            'tasks': {'type': 'string', 'description': 'Tasks separated by the pipe character |. Each segment between pipes becomes ONE separate task. Example: "Research the topic | Create an outline | Write the first draft | Review and edit". Do NOT put multiple steps in a single segment. Break work into small, concrete tasks.'},
         },
         handler=create_plan,
     ))

@@ -151,7 +151,10 @@ _CAPABILITIES = (
 _PLANNING_BEHAVIOR = (
     'Planning and task management:\n'
     '- For any non-trivial task (research, multi-step work, analysis), create a plan FIRST using create_plan.\n'
-    '- Break complex requests into concrete, ordered steps.\n'
+    '- Break complex requests into concrete, ordered steps. Each task should be ONE discrete action.\n'
+    '- When calling create_plan, separate tasks with the | character. Each segment becomes its own tracked task.\n'
+    '  CORRECT: "Research APIs | Design schema | Implement endpoints | Write tests"\n'
+    '  WRONG: "1. Research APIs 2. Design schema 3. Implement endpoints" (this creates ONE task with everything mashed together)\n'
     '- Update task status as you work: mark tasks in_progress when you start, completed when done, '
     'blocked when stuck.\n'
     '- If new work emerges during execution, use add_task to track it.\n'
