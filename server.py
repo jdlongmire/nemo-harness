@@ -35,8 +35,29 @@ from aiohttp import web
 from dotenv import load_dotenv
 
 import memory_store
+from tools.sandbox import Sandbox
+from tools.registry import TOOL_REGISTRY
+from tools.parser import ToolCallParser
+import tools.file_tools
+import tools.shell_tools
+import tools.search_tools
+import tools.web_tools
 
 load_dotenv(Path(__file__).parent / '.env')
+
+# --- Tool System Initialization ---
+_sandbox_dirs = os.getenv('NEMO_SANDBOX_DIRS', '').strip()
+if _sandbox_dirs:
+    _sandbox = Sandbox([d.strip() for d in _sandbox_dirs.split(',') if d.strip()])
+else:
+    _sandbox = Sandbox()  # defaults to nemo-harness directory
+
+tools.file_tools.register(_sandbox)
+tools.shell_tools.register(_sandbox)
+tools.search_tools.register(_sandbox)
+tools.web_tools.register()
+
+MAX_TOOL_ITERATIONS = 10
 
 # --- Structured Logging ---
 logger = logging.getLogger('nemo-harness')
@@ -67,6 +88,47 @@ class CorrelatedLogger:
         self._logger.error(f'{prefix} {msg}', *args, **kwargs)
 
 
+# --- Conversation Trace Logger ---
+TRACE_DIR = Path(__file__).parent / 'traces'
+TRACE_DIR.mkdir(exist_ok=True)
+
+
+class TraceLogger:
+    """Logs the full prompt/response chain for a conversation to a JSONL file."""
+
+    def __init__(self, correlation_id: str, model: str):
+        self._cid = correlation_id
+        self._model = model
+        ts = datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')
+        self._path = TRACE_DIR / f'{ts}_{correlation_id[:8]}.jsonl'
+
+    def log(self, event_type: str, data: dict):
+        entry = {
+            'ts': datetime.now(timezone.utc).isoformat(),
+            'cid': self._cid,
+            'model': self._model,
+            'event': event_type,
+            **data,
+        }
+        with open(self._path, 'a') as f:
+            f.write(json.dumps(entry, default=str) + '\n')
+
+    def prompt(self, messages: list, iteration: int):
+        self.log('prompt', {'iteration': iteration, 'messages': messages})
+
+    def response(self, raw_text: str, iteration: int):
+        self.log('response', {'iteration': iteration, 'raw_text': raw_text})
+
+    def tool_call(self, name: str, args: dict, iteration: int):
+        self.log('tool_call', {'iteration': iteration, 'tool': name, 'args': args})
+
+    def tool_result(self, name: str, result: dict, iteration: int):
+        self.log('tool_result', {'iteration': iteration, 'tool': name, 'result': result})
+
+    def final(self, text: str, iterations: int, elapsed: float):
+        self.log('final', {'text': text[:2000], 'iterations': iterations, 'elapsed_s': round(elapsed, 2)})
+
+
 # --- Behavioral Mode System ---
 DEFAULT_MODEL = 'nvidia/nemotron-3-nano-4b'
 
@@ -79,6 +141,8 @@ _CAPABILITIES = (
     '- /forget <id> : delete a memory entry\n'
     '- Mode and model switching via UI dropdowns\n'
     '- Conversation save/load/delete, response regeneration, thumbs up/down evaluation\n'
+    '\nYou also have tool-use capabilities for file operations, shell commands, and code search.\n'
+    'Use tools when the user asks you to read, write, edit, search, or run commands.\n'
 )
 
 _BEHAVIORAL_CORE = (
@@ -94,6 +158,9 @@ _BEHAVIORAL_CORE = (
     '- Never use em dashes; use colons, parentheses, or en dashes instead.\n'
     '- Use markdown. Use lists only when content demands enumeration. '
     'No symmetric reversals ("not X, but Y").\n'
+    '- When you use web_search or web_fetch, ALWAYS list your sources at the end of your response. '
+    'Format as a numbered "Sources" section with the title and URL of each page you referenced. '
+    'Do not just summarize what you found: cite where you found it so the user can verify.\n'
 )
 
 MODES = {
@@ -101,7 +168,11 @@ MODES = {
         'name': 'Default',
         'model': DEFAULT_MODEL,
         'system_prompt': (
-            'You are Nemo, a general-purpose AI assistant powered by NVIDIA Nemotron.\n\n'
+            'You are Nemo. You are NOT a generic AI assistant. You are a purpose-built assistant '
+            'created for the ThinxAI platform, running on NVIDIA Nemotron inference. '
+            'When asked who you are, say: "I\'m Nemo, the ThinxAI assistant. I run on NVIDIA Nemotron '
+            'and I\'m built for research, technical work, and creative tasks. I can read and write files, '
+            'run shell commands, search codebases, fetch web pages, and remember things across conversations."\n\n'
             + _CAPABILITIES + '\n'
             + _BEHAVIORAL_CORE + '\n'
             'Mode: Default. Balanced tone. Provide clear, accurate, concise responses.'
@@ -113,7 +184,7 @@ MODES = {
         'name': 'Technical',
         'model': DEFAULT_MODEL,
         'system_prompt': (
-            'You are Nemo, a precision-focused technical assistant powered by NVIDIA Nemotron.\n\n'
+            'You are Nemo, the ThinxAI technical assistant running on NVIDIA Nemotron.\n\n'
             + _CAPABILITIES + '\n'
             + _BEHAVIORAL_CORE + '\n'
             'Mode: Technical. Prioritize accuracy over brevity. Include code examples when relevant. '
@@ -127,7 +198,7 @@ MODES = {
         'name': 'Creative',
         'model': DEFAULT_MODEL,
         'system_prompt': (
-            'You are Nemo, a creative writing assistant powered by NVIDIA Nemotron.\n\n'
+            'You are Nemo, the ThinxAI creative assistant running on NVIDIA Nemotron.\n\n'
             + _CAPABILITIES + '\n'
             + _BEHAVIORAL_CORE + '\n'
             'Mode: Creative. Write with vivid language, varied sentence structure, and narrative flow. '
@@ -140,7 +211,7 @@ MODES = {
         'name': 'Research',
         'model': DEFAULT_MODEL,
         'system_prompt': (
-            'You are Nemo, a research analyst assistant powered by NVIDIA Nemotron.\n\n'
+            'You are Nemo, the ThinxAI research assistant running on NVIDIA Nemotron.\n\n'
             + _CAPABILITIES + '\n'
             + _BEHAVIORAL_CORE + '\n'
             'Mode: Research. Analyze claims carefully. Distinguish evidence from inference. '
@@ -258,12 +329,17 @@ def _strip_html_tags(html: str) -> str:
 
 
 def get_effective_system_prompt() -> str:
-    """Build system prompt from mode + memory context."""
+    """Build system prompt from mode + memory context + tool schemas."""
     if CFG['custom_system_prompt']:
         base_prompt = CFG['custom_system_prompt']
     else:
         mode = MODES.get(CFG['mode'], MODES['default'])
         base_prompt = mode['system_prompt']
+
+    # Inject tool schemas
+    tool_block = TOOL_REGISTRY.prompt_block()
+    if tool_block:
+        base_prompt += f'\n\n{tool_block}'
 
     # Inject memory context
     mem_block = memory_store.build_context_block()
@@ -473,105 +549,166 @@ def _emit_event(job: dict, event_type: str, data: dict):
     job['notify'].set()
 
 
-async def _process_chat_job(job_id: str, model: str, messages: list, temperature: float, max_tokens: int, cid: str):
-    """Process inference request and emit SSE events to job buffer."""
-    job = jobs[job_id]
-    clog = CorrelatedLogger(logger, cid, model=model)
-    start_time = time.monotonic()
-
-    _emit_event(job, 'status', {'message': f'Sending to {model}...'})
-
+async def _call_inference(session: aiohttp.ClientSession, model: str, messages: list,
+                          temperature: float, max_tokens: int, job: dict, clog) -> str | None:
+    """Single inference call. Streams tokens to job SSE. Returns full response text or None on error."""
     full_response = []
-    reasoning_content = []
 
     try:
-        async with aiohttp.ClientSession() as session:
-            payload = {
-                'model': model,
-                'messages': messages,
-                'stream': True,
-                'temperature': temperature,
-                'max_tokens': max_tokens,
-            }
+        payload = {
+            'model': model,
+            'messages': messages,
+            'stream': True,
+            'temperature': temperature,
+            'max_tokens': max_tokens,
+        }
 
-            async with session.post(
-                f'{CFG["api_base"]}/v1/chat/completions',
-                json=payload,
-                timeout=aiohttp.ClientTimeout(total=INFERENCE_TIMEOUT)
-            ) as resp:
-                if resp.status != 200:
-                    error_text = await resp.text()
-                    inference_breaker.record_failure()
-                    _emit_event(job, 'error', {'message': f'API error {resp.status}: {error_text}'})
-                    job['done'] = True
-                    job['notify'].set()
-                    clog.error('API error %d: %s', resp.status, error_text[:200])
-                    return
+        async with session.post(
+            f'{CFG["api_base"]}/v1/chat/completions',
+            json=payload,
+            timeout=aiohttp.ClientTimeout(total=INFERENCE_TIMEOUT)
+        ) as resp:
+            if resp.status != 200:
+                error_text = await resp.text()
+                inference_breaker.record_failure()
+                _emit_event(job, 'error', {'message': f'API error {resp.status}: {error_text}'})
+                clog.error('API error %d: %s', resp.status, error_text[:200])
+                return None
 
-                inference_breaker.record_success()
+            inference_breaker.record_success()
 
-                async for line in resp.content:
-                    line = line.decode('utf-8').strip()
-                    if not line.startswith('data: '):
-                        continue
-                    data = line[6:]
-                    if data == '[DONE]':
-                        break
+            async for line in resp.content:
+                line = line.decode('utf-8').strip()
+                if not line.startswith('data: '):
+                    continue
+                data = line[6:]
+                if data == '[DONE]':
+                    break
 
-                    try:
-                        chunk = json.loads(data)
-                        delta = chunk.get('choices', [{}])[0].get('delta', {})
+                try:
+                    chunk = json.loads(data)
+                    delta = chunk.get('choices', [{}])[0].get('delta', {})
 
-                        if delta.get('reasoning_content'):
-                            reasoning_content.append(delta['reasoning_content'])
-                            _emit_event(job, 'reasoning', {'content': delta['reasoning_content']})
+                    if delta.get('reasoning_content'):
+                        _emit_event(job, 'reasoning', {'content': delta['reasoning_content']})
 
-                        if delta.get('content'):
-                            full_response.append(delta['content'])
-                            _emit_event(job, 'content', {'content': delta['content']})
+                    if delta.get('content'):
+                        full_response.append(delta['content'])
+                        _emit_event(job, 'content', {'content': delta['content']})
 
-                        usage = chunk.get('usage')
-                        if usage:
-                            _emit_event(job, 'usage', {
-                                'prompt_tokens': usage.get('prompt_tokens', 0),
-                                'completion_tokens': usage.get('completion_tokens', 0),
-                            })
-                            log_token_usage(cid, model,
-                                            usage.get('prompt_tokens', 0),
-                                            usage.get('completion_tokens', 0))
-
-                    except json.JSONDecodeError:
-                        continue
+                    usage = chunk.get('usage')
+                    if usage:
+                        _emit_event(job, 'usage', {
+                            'prompt_tokens': usage.get('prompt_tokens', 0),
+                            'completion_tokens': usage.get('completion_tokens', 0),
+                        })
+                        log_token_usage(clog._cid, model,
+                                        usage.get('prompt_tokens', 0),
+                                        usage.get('completion_tokens', 0))
+                except json.JSONDecodeError:
+                    continue
 
     except asyncio.TimeoutError:
         inference_breaker.record_failure()
         _emit_event(job, 'error', {'message': f'Inference timed out after {INFERENCE_TIMEOUT}s'})
         clog.error('Inference timeout after %ds', INFERENCE_TIMEOUT)
+        return None
     except aiohttp.ClientError as e:
         inference_breaker.record_failure()
         _emit_event(job, 'error', {'message': f'Connection error: {e}'})
         clog.error('Connection error: %s', e)
+        return None
     except Exception as e:
         inference_breaker.record_failure()
         _emit_event(job, 'error', {'message': f'Unexpected error: {e}'})
         clog.error('Unexpected error: %s', e)
+        return None
 
-    # Process response
-    assistant_msg = ''.join(full_response)
-    if assistant_msg:
-        # Process action tags (e.g., [ACTION:remember|...])
-        cleaned_msg, actions = process_action_tags(assistant_msg, clog)
+    return ''.join(full_response)
 
-        # Surface any action results
-        for action in actions:
-            _emit_event(job, 'action', {'message': action})
 
-        conversation.append({'role': 'assistant', 'content': cleaned_msg})
+async def _process_chat_job(job_id: str, model: str, messages: list, temperature: float, max_tokens: int, cid: str):
+    """Process inference with tool-calling loop. Max MAX_TOOL_ITERATIONS iterations."""
+    job = jobs[job_id]
+    clog = CorrelatedLogger(logger, cid, model=model)
+    trace = TraceLogger(cid, model)
+    start_time = time.monotonic()
+
+    _emit_event(job, 'status', {'message': f'Sending to {model}...'})
+
+    final_text = ''
+    iteration = 0
+
+    async with aiohttp.ClientSession() as session:
+        while iteration < MAX_TOOL_ITERATIONS:
+            iteration += 1
+
+            trace.prompt(messages, iteration)
+            response_text = await _call_inference(session, model, messages, temperature, max_tokens, job, clog)
+            if response_text is None:
+                trace.log('error', {'iteration': iteration, 'message': 'inference returned None'})
+                job['done'] = True
+                job['notify'].set()
+                return
+
+            trace.response(response_text, iteration)
+
+            # Process action tags (memory)
+            cleaned_text, actions = process_action_tags(response_text, clog)
+            for action in actions:
+                _emit_event(job, 'action', {'message': action})
+
+            # Check for tool calls
+            text_without_tools, tool_calls = ToolCallParser.parse(cleaned_text)
+
+            if not tool_calls:
+                # No tool calls: this is the final response
+                final_text = cleaned_text
+                break
+
+            # Execute tool calls
+            clog.info('Iteration %d: %d tool call(s) detected', iteration, len(tool_calls))
+
+            # Add assistant message with tool calls to conversation context
+            messages.append({'role': 'assistant', 'content': response_text})
+
+            tool_results = []
+            for tc in tool_calls:
+                _emit_event(job, 'tool_call', {'name': tc.name, 'args': tc.args})
+                clog.info('Executing tool: %s(%s)', tc.name, json.dumps(tc.args)[:200])
+                trace.tool_call(tc.name, tc.args, iteration)
+
+                result = await TOOL_REGISTRY.execute(tc.name, tc.args)
+
+                result_text = json.dumps(result, default=str)[:2000]
+                _emit_event(job, 'tool_result', {'name': tc.name, 'result': result})
+                clog.info('Tool %s result: success=%s', tc.name, result.get('success', False))
+                trace.tool_result(tc.name, result, iteration)
+
+                tool_results.append(f'<tool_result name="{tc.name}">\n{result_text}\n</tool_result>')
+
+            # Feed results back as a user message for next iteration
+            results_block = '\n'.join(tool_results)
+            messages.append({'role': 'user', 'content': results_block})
+
+            # Clear content event so UI knows more is coming
+            _emit_event(job, 'status', {'message': f'Processing tool results (iteration {iteration})...'})
+
+        else:
+            # Hit max iterations
+            clog.warning('Hit max tool iterations (%d)', MAX_TOOL_ITERATIONS)
+            _emit_event(job, 'status', {'message': 'Reached tool iteration limit'})
+            final_text = text_without_tools if text_without_tools else 'I reached the maximum number of tool iterations. Here is what I found so far.'
+
+    # Store final response in conversation
+    if final_text:
+        conversation.append({'role': 'assistant', 'content': final_text})
         while len(conversation) > CFG['max_history']:
             conversation.pop(0)
 
     elapsed = time.monotonic() - start_time
-    clog.info('Job %s completed in %.1fs (%d chars)', job_id, elapsed, len(assistant_msg))
+    trace.final(final_text, iteration, elapsed)
+    clog.info('Job %s completed in %.1fs (%d chars, %d iterations)', job_id, elapsed, len(final_text), iteration)
 
     _emit_event(job, 'done', {})
     job['done'] = True

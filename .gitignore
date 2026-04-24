@@ -6,3 +6,4 @@ venv/
 
 conversations/
 memory/memory.db
+traces/

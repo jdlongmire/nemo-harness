@@ -195,6 +195,12 @@
         .message.assistant { background: #0d2540; align-self: flex-start; border-bottom-left-radius: 4px; }
         .message.reasoning { background: #1a1a30; border-left: 3px solid #6366f1; align-self: flex-start; font-size: 13px; color: #a5b4fc; max-width: 90%; }
         .message.system-action { background: rgba(118,185,0,0.08); border-left: 3px solid #76b900; align-self: flex-start; font-size: 12px; color: #76b900; max-width: 90%; padding: 6px 10px; }
+        .message.tool-call { background: rgba(251,191,36,0.08); border-left: 3px solid #fbbf24; align-self: flex-start; font-size: 12px; color: #fbbf24; max-width: 90%; padding: 6px 10px; font-family: 'SF Mono', Menlo, Monaco, monospace; }
+        .message.tool-result { background: rgba(96,165,250,0.08); border-left: 3px solid #60a5fa; align-self: flex-start; font-size: 11px; color: #93c5fd; max-width: 90%; padding: 6px 10px; }
+        .tool-result-body { max-height: 150px; overflow-y: auto; white-space: pre-wrap; word-break: break-word; font-family: 'SF Mono', Menlo, Monaco, monospace; font-size: 11px; }
+        .tool-result-header { font-weight: 600; margin-bottom: 4px; font-size: 11px; }
+        .tool-result-success { color: #34d399; }
+        .tool-result-fail { color: #f87171; }
         .message.assistant pre { background: #071520; padding: 10px; border-radius: 6px; overflow-x: auto; margin: 8px 0; }
         .message.assistant code { font-family: 'SF Mono', Menlo, Monaco, 'Courier New', monospace; font-size: 13px; }
         .message.assistant p code { background: #071520; padding: 2px 6px; border-radius: 4px; }
@@ -320,6 +326,8 @@
         body.light .message.assistant { background: #ede8df; color: #222; border: 1px solid #c8d8d5; }
         body.light .message.reasoning { background: #eef0ff; color: #4338ca; border-left-color: #6366f1; }
         body.light .message.system-action { background: rgba(74,124,16,0.08); color: #4a7c10; }
+        body.light .message.tool-call { background: rgba(180,140,20,0.08); color: #92400e; border-left-color: #d97706; }
+        body.light .message.tool-result { background: rgba(2,132,199,0.06); color: #0369a1; border-left-color: #0284c7; }
         body.light .message.assistant pre { background: #e5e0d6; }
         body.light .message.assistant p code { background: #e5e0d6; }
         body.light .message.assistant strong { color: #111; }
@@ -1054,6 +1062,34 @@
                                         badge.textContent = `\u26A1 ${(data.prompt_tokens || 0).toLocaleString()} in / ${(data.completion_tokens || 0).toLocaleString()} out`;
                                         responseMsg.appendChild(badge);
                                     }
+                                } else if (data.type === 'tool_call') {
+                                    if (typingMsg.parentNode) typingMsg.remove();
+                                    const tcMsg = document.createElement('div');
+                                    tcMsg.className = 'message tool-call';
+                                    const argsStr = JSON.stringify(data.args, null, 2);
+                                    tcMsg.textContent = `\u{1F527} ${data.name}(${argsStr.length > 200 ? argsStr.slice(0, 200) + '...' : argsStr})`;
+                                    chat.appendChild(tcMsg);
+                                    chat.scrollTop = chat.scrollHeight;
+                                    // Reset response accumulator for next iteration
+                                    if (responseMsg) {
+                                        const fullContent = responseChunks.join('');
+                                        responseMsg.dataset.raw = fullContent;
+                                        addAssistantControls(responseMsg, fullContent);
+                                    }
+                                    responseChunks = [];
+                                    responseMsg = null;
+                                    reasoningChunks = [];
+                                    reasoningMsg = null;
+                                } else if (data.type === 'tool_result') {
+                                    const trMsg = document.createElement('div');
+                                    trMsg.className = 'message tool-result';
+                                    const success = data.result && data.result.success;
+                                    const statusClass = success ? 'tool-result-success' : 'tool-result-fail';
+                                    const resultStr = JSON.stringify(data.result, null, 2);
+                                    const preview = resultStr.length > 500 ? resultStr.slice(0, 500) + '...' : resultStr;
+                                    trMsg.innerHTML = `<div class="tool-result-header ${statusClass}">${escapeHtml(data.name)}: ${success ? 'OK' : 'FAILED'}</div><div class="tool-result-body">${escapeHtml(preview)}</div>`;
+                                    chat.appendChild(trMsg);
+                                    chat.scrollTop = chat.scrollHeight;
                                 } else if (data.type === 'action') {
                                     addMessage(data.message, 'system-action');
                                 } else if (data.type === 'error') {
