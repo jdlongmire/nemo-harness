@@ -38,27 +38,15 @@
         }
 
         #sidebar-toggle {
-            background: none;
-            border: none;
-            font-size: 18px;
-            cursor: pointer;
-            color: #aaa;
-            padding: 4px 6px;
-            border-radius: 4px;
-            flex-shrink: 0;
-            line-height: 1;
+            background: none; border: none; font-size: 18px; cursor: pointer;
+            color: #aaa; padding: 4px 6px; border-radius: 4px; flex-shrink: 0; line-height: 1;
         }
         #sidebar-toggle:hover { color: #fff; background: rgba(255,255,255,0.08); }
 
         header h1 {
-            font-size: 16px;
-            font-weight: 600;
-            color: #76b900;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            flex-shrink: 0;
-            white-space: nowrap;
+            font-size: 16px; font-weight: 600; color: #76b900;
+            display: flex; align-items: center; gap: 6px;
+            flex-shrink: 0; white-space: nowrap;
         }
 
         .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #888; flex-shrink: 0; }
@@ -67,244 +55,150 @@
         @keyframes glow { from { box-shadow: 0 0 4px #76b900, 0 0 8px rgba(118,185,0,0.3); } to { box-shadow: 0 0 8px #76b900, 0 0 16px rgba(118,185,0,0.5); } }
 
         #model-select {
-            background: #0a1a2e;
-            border: 1px solid #1a4a3a;
-            color: #aaa;
-            font-size: 11px;
-            padding: 3px 6px;
-            border-radius: 4px;
-            max-width: 200px;
-            flex-shrink: 1;
-            min-width: 0;
+            background: #0a1a2e; border: 1px solid #1a4a3a; color: #aaa;
+            font-size: 11px; padding: 3px 6px; border-radius: 4px; max-width: 200px;
+            flex-shrink: 1; min-width: 0;
+        }
+
+        #mode-select {
+            background: #0a1a2e; border: 1px solid #1a4a3a; color: #76b900;
+            font-size: 11px; padding: 3px 6px; border-radius: 4px; max-width: 120px;
+            flex-shrink: 0; font-weight: 500;
         }
 
         .header-spacer { flex: 1; }
 
-        #mute-toggle { background: none; border: none; font-size: 16px; cursor: pointer; color: #aaa; line-height: 1; padding: 4px; flex-shrink: 0; opacity: 0.6; }
-        #mute-toggle:hover { opacity: 1; color: #fff; }
+        .header-btn { background: none; border: none; font-size: 16px; cursor: pointer; color: #aaa; padding: 4px; flex-shrink: 0; line-height: 1; }
+        .header-btn:hover { color: #fff; }
+        #mute-toggle { opacity: 0.6; }
+        #mute-toggle:hover { opacity: 1; }
         #mute-toggle.muted { color: #f87171; opacity: 0.8; }
-
-        #settings-btn { background: none; border: none; font-size: 16px; cursor: pointer; color: #aaa; padding: 4px; flex-shrink: 0; }
-        #settings-btn:hover { color: #fff; }
-
-        #theme-toggle { background: none; border: none; font-size: 18px; cursor: pointer; color: #aaa; line-height: 1; padding: 4px; flex-shrink: 0; }
-        #theme-toggle:hover { transform: scale(1.15); color: #fff; }
+        #theme-toggle { font-size: 18px; }
+        #theme-toggle:hover { transform: scale(1.15); }
 
         /* ===== SIDEBAR ===== */
-        #sidebar-overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.5);
-            z-index: 300;
-        }
+        #sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 300; }
         #sidebar-overlay.active { display: block; }
 
         #sidebar {
-            position: fixed;
-            top: 0; left: 0; bottom: 0;
-            width: 280px;
-            background: #0d2540;
-            border-right: 1px solid #1a4a3a;
-            z-index: 310;
-            transform: translateX(-100%);
-            transition: transform 0.25s cubic-bezier(0.4,0,0.2,1);
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
+            position: fixed; top: 0; left: 0; bottom: 0; width: 280px;
+            background: #0d2540; border-right: 1px solid #1a4a3a; z-index: 310;
+            transform: translateX(-100%); transition: transform 0.25s cubic-bezier(0.4,0,0.2,1);
+            display: flex; flex-direction: column; overflow: hidden;
         }
         #sidebar.open { transform: translateX(0); }
 
         .sidebar-header {
-            padding: 12px;
-            border-bottom: 1px solid #1a4a3a;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            flex-shrink: 0;
+            padding: 12px; border-bottom: 1px solid #1a4a3a;
+            display: flex; align-items: center; gap: 8px; flex-shrink: 0;
         }
+        .sidebar-header h2 { font-size: 14px; font-weight: 600; color: #76b900; flex: 1; }
 
-        .sidebar-header h2 {
-            font-size: 14px;
-            font-weight: 600;
-            color: #76b900;
-            flex: 1;
+        .sidebar-tabs {
+            display: flex; border-bottom: 1px solid #1a4a3a; flex-shrink: 0;
         }
+        .sidebar-tab {
+            flex: 1; padding: 8px; text-align: center; font-size: 12px; color: #888;
+            cursor: pointer; border: none; background: none; border-bottom: 2px solid transparent;
+        }
+        .sidebar-tab.active { color: #76b900; border-bottom-color: #76b900; }
+        .sidebar-tab:hover { color: #ccc; }
 
         #new-convo-btn {
-            background: #76b900;
-            color: #fff;
-            border: none;
-            font-size: 11px;
-            padding: 5px 10px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 500;
-            transition: background 0.15s;
+            background: #76b900; color: #fff; border: none; font-size: 11px;
+            padding: 5px 10px; border-radius: 6px; cursor: pointer; font-weight: 500;
         }
         #new-convo-btn:hover { background: #8ad600; }
 
-        #convo-list {
-            flex: 1;
-            overflow-y: auto;
-            padding: 8px;
-        }
+        .sidebar-content { flex: 1; overflow-y: auto; padding: 8px; }
 
         .convo-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 10px;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: background 0.15s;
-            margin-bottom: 2px;
+            display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+            border-radius: 8px; cursor: pointer; transition: background 0.15s; margin-bottom: 2px;
         }
         .convo-item:hover { background: rgba(118,185,0,0.08); }
         .convo-item.active { background: rgba(118,185,0,0.15); }
-
-        .convo-title {
-            flex: 1;
-            font-size: 13px;
-            color: #ccc;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            min-width: 0;
-        }
+        .convo-title { flex: 1; font-size: 13px; color: #ccc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
         .convo-item.active .convo-title { color: #76b900; }
-
-        .convo-date {
-            font-size: 10px;
-            color: #666;
-            flex-shrink: 0;
-        }
-
-        .convo-delete {
-            background: none;
-            border: none;
-            color: #666;
-            cursor: pointer;
-            font-size: 14px;
-            padding: 2px 4px;
-            border-radius: 4px;
-            opacity: 0;
-            transition: opacity 0.15s;
-            flex-shrink: 0;
-        }
+        .convo-date { font-size: 10px; color: #666; flex-shrink: 0; }
+        .convo-delete { background: none; border: none; color: #666; cursor: pointer; font-size: 14px; padding: 2px 4px; border-radius: 4px; opacity: 0; transition: opacity 0.15s; flex-shrink: 0; }
         .convo-item:hover .convo-delete { opacity: 0.7; }
         .convo-delete:hover { opacity: 1 !important; color: #f87171; }
 
+        /* ===== MEMORY PANEL ===== */
+        .memory-item {
+            padding: 8px 10px; border-radius: 8px; margin-bottom: 4px;
+            background: rgba(118,185,0,0.04); border: 1px solid rgba(118,185,0,0.1);
+        }
+        .memory-item-header { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+        .memory-type { font-size: 9px; text-transform: uppercase; padding: 1px 5px; border-radius: 3px; font-weight: 600; }
+        .memory-type.user { background: #1e3a5f; color: #60a5fa; }
+        .memory-type.feedback { background: #3f2a1e; color: #fbbf24; }
+        .memory-type.project { background: #1e3f2a; color: #34d399; }
+        .memory-type.reference { background: #2a1e3f; color: #a78bfa; }
+        .memory-name { font-size: 12px; color: #ccc; font-weight: 500; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .memory-content { font-size: 11px; color: #888; line-height: 1.4; max-height: 60px; overflow: hidden; }
+        .memory-delete { background: none; border: none; color: #666; cursor: pointer; font-size: 12px; padding: 2px; border-radius: 3px; }
+        .memory-delete:hover { color: #f87171; }
+
+        #memory-add-btn {
+            width: 100%; padding: 6px; margin-top: 4px; background: rgba(118,185,0,0.1);
+            border: 1px dashed rgba(118,185,0,0.3); border-radius: 6px; color: #76b900;
+            font-size: 11px; cursor: pointer;
+        }
+        #memory-add-btn:hover { background: rgba(118,185,0,0.15); }
+
         /* ===== SETTINGS PANEL ===== */
         #settings-panel {
-            display: none;
-            background: #0d2540;
-            border-bottom: 1px solid #1a4a3a;
-            padding: 12px 16px;
-            font-size: 12px;
-            flex-shrink: 0;
+            display: none; background: #0d2540; border-bottom: 1px solid #1a4a3a;
+            padding: 12px 16px; font-size: 12px; flex-shrink: 0;
         }
         #settings-panel.open { display: block; }
         #settings-panel label { display: block; color: #aaa; margin-bottom: 4px; margin-top: 8px; }
         #settings-panel label:first-child { margin-top: 0; }
         #settings-panel input, #settings-panel textarea {
-            width: 100%;
-            background: #0a1a2e;
-            border: 1px solid #1a4a3a;
-            color: #eee;
-            padding: 6px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            font-family: inherit;
+            width: 100%; background: #0a1a2e; border: 1px solid #1a4a3a; color: #eee;
+            padding: 6px 8px; border-radius: 4px; font-size: 12px; font-family: inherit;
         }
         #settings-panel textarea { resize: vertical; min-height: 60px; }
         .settings-row { display: flex; gap: 12px; }
         .settings-row > div { flex: 1; }
         #settings-panel button {
-            margin-top: 8px;
-            background: #76b900;
-            color: #fff;
-            border: none;
-            padding: 6px 16px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 12px;
+            margin-top: 8px; background: #76b900; color: #fff; border: none;
+            padding: 6px 16px; border-radius: 4px; cursor: pointer; font-size: 12px;
         }
 
         #model-info {
-            font-size: 11px;
-            color: #666;
-            padding: 2px 12px;
-            background: #0d2540;
-            border-bottom: 1px solid #1a4a3a;
-            flex-shrink: 0;
+            font-size: 11px; color: #666; padding: 2px 12px; background: #0d2540;
+            border-bottom: 1px solid #1a4a3a; flex-shrink: 0;
+            display: flex; align-items: center; gap: 8px;
         }
+        .breaker-badge {
+            font-size: 9px; padding: 1px 5px; border-radius: 3px; font-weight: 600;
+        }
+        .breaker-badge.closed { background: #1e3f2a; color: #34d399; }
+        .breaker-badge.open { background: #3f1e1e; color: #f87171; }
+        .breaker-badge.half-open { background: #3f3a1e; color: #fbbf24; }
 
         /* ===== CHAT ===== */
         #chat {
-            flex: 1;
-            overflow-y: auto;
-            padding: 16px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
+            flex: 1; overflow-y: auto; padding: 16px;
+            display: flex; flex-direction: column; gap: 12px;
         }
 
         .message {
-            max-width: 85%;
-            padding: 10px 14px;
-            border-radius: 16px;
-            line-height: 1.5;
-            word-wrap: break-word;
-            overflow-wrap: break-word;
-            min-width: 0;
-            position: relative;
+            max-width: 85%; padding: 10px 14px; border-radius: 16px;
+            line-height: 1.5; word-wrap: break-word; overflow-wrap: break-word;
+            min-width: 0; position: relative;
         }
-
-        .message.user {
-            background: #1a4a3a;
-            align-self: flex-end;
-            border-bottom-right-radius: 4px;
-        }
-
-        .message.assistant {
-            background: #0d2540;
-            align-self: flex-start;
-            border-bottom-left-radius: 4px;
-        }
-
-        .message.reasoning {
-            background: #1a1a30;
-            border-left: 3px solid #6366f1;
-            align-self: flex-start;
-            font-size: 13px;
-            color: #a5b4fc;
-            max-width: 90%;
-        }
-
-        .message.assistant pre {
-            background: #071520;
-            padding: 10px;
-            border-radius: 6px;
-            overflow-x: auto;
-            margin: 8px 0;
-        }
-
-        .message.assistant code {
-            font-family: 'SF Mono', Menlo, Monaco, 'Courier New', monospace;
-            font-size: 13px;
-        }
-
-        .message.assistant p code {
-            background: #071520;
-            padding: 2px 6px;
-            border-radius: 4px;
-        }
-
-        .message.typing {
-            color: #888;
-            font-style: italic;
-        }
+        .message.user { background: #1a4a3a; align-self: flex-end; border-bottom-right-radius: 4px; }
+        .message.assistant { background: #0d2540; align-self: flex-start; border-bottom-left-radius: 4px; }
+        .message.reasoning { background: #1a1a30; border-left: 3px solid #6366f1; align-self: flex-start; font-size: 13px; color: #a5b4fc; max-width: 90%; }
+        .message.system-action { background: rgba(118,185,0,0.08); border-left: 3px solid #76b900; align-self: flex-start; font-size: 12px; color: #76b900; max-width: 90%; padding: 6px 10px; }
+        .message.assistant pre { background: #071520; padding: 10px; border-radius: 6px; overflow-x: auto; margin: 8px 0; }
+        .message.assistant code { font-family: 'SF Mono', Menlo, Monaco, 'Courier New', monospace; font-size: 13px; }
+        .message.assistant p code { background: #071520; padding: 2px 6px; border-radius: 4px; }
+        .message.typing { color: #888; font-style: italic; }
 
         /* ===== MESSAGE ACTIONS ===== */
         .copy-btn { position: absolute; bottom: 6px; right: 8px; background: none; border: none; color: #666; cursor: pointer; font-size: 14px; padding: 2px 6px; border-radius: 4px; opacity: 0; transition: opacity 0.2s; }
@@ -350,81 +244,32 @@
 
         /* ===== INPUT AREA ===== */
         #input-area {
-            padding: 12px 16px;
-            background: #0d2540;
-            border-top: 1px solid #1a4a3a;
-            display: flex;
-            gap: 8px;
-            align-items: flex-end;
-            flex-shrink: 0;
+            padding: 12px 16px; background: #0d2540; border-top: 1px solid #1a4a3a;
+            display: flex; gap: 8px; align-items: flex-end; flex-shrink: 0;
         }
-
         #message-input {
-            flex: 1;
-            min-width: 0;
-            background: #0a1a2e;
-            border: 1px solid #1a4a3a;
-            border-radius: 20px;
-            padding: 10px 14px;
-            color: #eee;
-            font-size: 14px;
-            outline: none;
-            resize: none;
-            min-height: 40px;
-            max-height: 120px;
-            font-family: inherit;
+            flex: 1; min-width: 0; background: #0a1a2e; border: 1px solid #1a4a3a;
+            border-radius: 20px; padding: 10px 14px; color: #eee; font-size: 14px;
+            outline: none; resize: none; min-height: 40px; max-height: 120px; font-family: inherit;
         }
-
         #message-input:focus { border-color: #76b900; }
-
         #send-btn {
-            background: #76b900;
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            min-width: 40px;
-            font-size: 18px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            background: #76b900; color: white; border: none; border-radius: 50%;
+            width: 40px; height: 40px; min-width: 40px; font-size: 18px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
             transition: background 0.15s, transform 0.1s;
         }
-
         #send-btn:disabled { background: #555; cursor: not-allowed; }
         #send-btn:active:not(:disabled) { transform: scale(0.95); }
-
         #clear-btn {
-            background: none;
-            border: 1px solid #333;
-            color: #888;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            min-width: 40px;
-            font-size: 14px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: border-color 0.15s, color 0.15s;
+            background: none; border: 1px solid #333; color: #888; border-radius: 50%;
+            width: 40px; height: 40px; min-width: 40px; font-size: 14px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
         }
         #clear-btn:hover { border-color: #f87171; color: #f87171; }
 
         /* ===== IMAGE MODAL ===== */
-        .image-modal {
-            display: none;
-            position: fixed;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            background: rgba(0,0,0,0.9);
-            z-index: 1000;
-            justify-content: center;
-            align-items: center;
-            cursor: pointer;
-        }
+        .image-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 1000; justify-content: center; align-items: center; cursor: pointer; }
         .image-modal img { max-width: 95%; max-height: 95%; object-fit: contain; }
         .image-modal.active { display: flex; }
 
@@ -435,7 +280,6 @@
             background: #f5f5f0; border: 1px solid #e0e0dc; color: #333;
             font-size: 18px; cursor: pointer; display: none; align-items: center;
             justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.15); z-index: 100;
-            transition: opacity 0.2s, transform 0.2s;
         }
         #scroll-bottom-btn.visible { display: flex; }
         #scroll-bottom-btn:hover { background: #eaeae5; transform: translateX(-50%) scale(1.05); }
@@ -449,6 +293,9 @@
         body.light #sidebar { background: #ede8df; border-right-color: #c8d8d5; }
         body.light .sidebar-header { border-bottom-color: #c8d8d5; }
         body.light .sidebar-header h2 { color: #4a7c10; }
+        body.light .sidebar-tabs { border-bottom-color: #c8d8d5; }
+        body.light .sidebar-tab { color: #888; }
+        body.light .sidebar-tab.active { color: #4a7c10; border-bottom-color: #4a7c10; }
         body.light .convo-item:hover { background: rgba(74,124,16,0.08); }
         body.light .convo-item.active { background: rgba(74,124,16,0.15); }
         body.light .convo-title { color: #555; }
@@ -457,6 +304,7 @@
         body.light .message.user { background: #dde8e6; color: #222; }
         body.light .message.assistant { background: #ede8df; color: #222; border: 1px solid #c8d8d5; }
         body.light .message.reasoning { background: #eef0ff; color: #4338ca; border-left-color: #6366f1; }
+        body.light .message.system-action { background: rgba(74,124,16,0.08); color: #4a7c10; }
         body.light .message.assistant pre { background: #e5e0d6; }
         body.light .message.assistant p code { background: #e5e0d6; }
         body.light .message.assistant strong { color: #111; }
@@ -470,6 +318,7 @@
         body.light #message-input:focus { border-color: #4a7c10; }
         body.light #model-info { background: #ede8df; border-bottom-color: #c8d8d5; color: #888; }
         body.light #model-select { background: #f5f0e8; border-color: #c8d8d5; color: #555; }
+        body.light #mode-select { background: #f5f0e8; border-color: #c8d8d5; color: #4a7c10; }
         body.light #settings-panel { background: #ede8df; border-bottom-color: #c8d8d5; }
         body.light #settings-panel input, body.light #settings-panel textarea { background: #f5f0e8; border-color: #c8d8d5; color: #222; }
         body.light .token-badge { color: #888; }
@@ -478,50 +327,54 @@
         body.light .copy-btn.copied { color: #4a7c10; }
         body.light .edit-btn { color: #4a7c10; }
         body.light .regen-btn { color: #4a7c10; }
-        body.light #mute-toggle { color: #555; }
-        body.light #mute-toggle:hover { color: #111; }
+        body.light .header-btn { color: #555; }
+        body.light .header-btn:hover { color: #111; }
         body.light #mute-toggle.muted { color: #be123c; }
-        body.light #theme-toggle { color: #555; }
-        body.light #theme-toggle:hover { color: #111; }
-        body.light #settings-btn { color: #555; }
-        body.light #settings-btn:hover { color: #111; }
         body.light #sidebar-overlay { background: rgba(0,0,0,0.3); }
+        body.light .memory-item { background: rgba(74,124,16,0.04); border-color: rgba(74,124,16,0.1); }
+        body.light .memory-name { color: #444; }
+        body.light .memory-content { color: #666; }
 
         /* ===== RESPONSIVE ===== */
         @media (max-width: 600px) {
             header h1 { font-size: 14px; }
             #model-select { max-width: 120px; font-size: 10px; }
+            #mode-select { max-width: 80px; font-size: 10px; }
             .message { max-width: 92%; }
             #sidebar { width: 260px; }
         }
     </style>
 </head>
 <body>
-    <!-- Sidebar overlay -->
     <div id="sidebar-overlay"></div>
 
-    <!-- Conversation sidebar -->
     <div id="sidebar">
         <div class="sidebar-header">
-            <h2>Conversations</h2>
+            <h2>Nemo</h2>
             <button id="new-convo-btn">+ New</button>
         </div>
-        <div id="convo-list"></div>
+        <div class="sidebar-tabs">
+            <button class="sidebar-tab active" data-tab="conversations">Chats</button>
+            <button class="sidebar-tab" data-tab="memory">Memory</button>
+        </div>
+        <div class="sidebar-content" id="convo-list"></div>
+        <div class="sidebar-content" id="memory-list" style="display:none"></div>
     </div>
 
     <header>
         <button id="sidebar-toggle" title="Conversations">&#9776;</button>
         <h1>&#9881; Nemo Harness</h1>
+        <select id="mode-select" title="Behavioral mode"></select>
         <select id="model-select" title="Select model"></select>
         <div class="header-spacer"></div>
-        <button id="mute-toggle" title="Mute notification sounds">&#128264;</button>
-        <button id="settings-btn" title="Settings">&#9881;</button>
-        <button id="theme-toggle" title="Toggle theme">&#9788;</button>
+        <button id="mute-toggle" class="header-btn" title="Mute notification sounds">&#128264;</button>
+        <button id="settings-btn" class="header-btn" title="Settings">&#9881;</button>
+        <button id="theme-toggle" class="header-btn" title="Toggle theme">&#9788;</button>
         <div class="status-dot" id="status-dot" title="Connecting..."></div>
     </header>
 
     <div id="settings-panel">
-        <label>System Prompt</label>
+        <label>System Prompt Override (leave empty to use mode default)</label>
         <textarea id="cfg-system-prompt" rows="3"></textarea>
         <div class="settings-row">
             <div>
@@ -546,7 +399,6 @@
         <button id="send-btn" disabled>&#10148;</button>
     </div>
 
-    <!-- Image modal -->
     <div class="image-modal" id="image-modal">
         <img src="" alt="Fullscreen image">
     </div>
@@ -561,6 +413,7 @@
         const statusDot = document.getElementById('status-dot');
         const modelInfo = document.getElementById('model-info');
         const modelSelect = document.getElementById('model-select');
+        const modeSelect = document.getElementById('mode-select');
         const scrollBottomBtn = document.getElementById('scroll-bottom-btn');
         const settingsBtn = document.getElementById('settings-btn');
         const settingsPanel = document.getElementById('settings-panel');
@@ -569,6 +422,7 @@
         const sidebarOverlay = document.getElementById('sidebar-overlay');
         const newConvoBtn = document.getElementById('new-convo-btn');
         const convoList = document.getElementById('convo-list');
+        const memoryList = document.getElementById('memory-list');
         const imageModal = document.getElementById('image-modal');
         const modalImg = imageModal.querySelector('img');
         const muteToggle = document.getElementById('mute-toggle');
@@ -576,37 +430,33 @@
         // ===== STATE =====
         let isSending = false;
         let currentModel = '';
+        let currentMode = 'default';
         let temperature = 0.7;
         let maxTokens = 2048;
         let turnIndex = 0;
         let pendingEditTurn = null;
         let currentConvoId = null;
         let isMuted = localStorage.getItem('nemo-muted') === 'true';
+        let currentEventSource = null;
 
-        // Session ID for evaluations
         if (!sessionStorage.getItem('nemo-session-id')) {
             sessionStorage.setItem('nemo-session-id', crypto.randomUUID());
         }
         const SESSION_ID = sessionStorage.getItem('nemo-session-id');
 
-        // ===== MARKED CONFIG =====
         marked.setOptions({ breaks: true, gfm: true, headerIds: false, mangle: false });
 
-        // ===== SERVICE WORKER =====
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('sw.js').catch(() => {});
         }
 
-        // ===== MUTE TOGGLE =====
+        // ===== MUTE =====
         function applyMute() {
             muteToggle.classList.toggle('muted', isMuted);
             muteToggle.innerHTML = isMuted ? '&#128263;' : '&#128264;';
             localStorage.setItem('nemo-muted', isMuted);
         }
-        muteToggle.addEventListener('click', () => {
-            isMuted = !isMuted;
-            applyMute();
-        });
+        muteToggle.addEventListener('click', () => { isMuted = !isMuted; applyMute(); });
         applyMute();
 
         // ===== THEME =====
@@ -622,34 +472,110 @@
         applyTheme(localStorage.getItem('nemo-theme') || 'dark');
 
         // ===== SIDEBAR =====
-        function openSidebar() {
-            sidebar.classList.add('open');
-            sidebarOverlay.classList.add('active');
-        }
-        function closeSidebar() {
-            sidebar.classList.remove('open');
-            sidebarOverlay.classList.remove('active');
-        }
-        sidebarToggle.addEventListener('click', () => {
-            sidebar.classList.contains('open') ? closeSidebar() : openSidebar();
-        });
+        function openSidebar() { sidebar.classList.add('open'); sidebarOverlay.classList.add('active'); }
+        function closeSidebar() { sidebar.classList.remove('open'); sidebarOverlay.classList.remove('active'); }
+        sidebarToggle.addEventListener('click', () => { sidebar.classList.contains('open') ? closeSidebar() : openSidebar(); });
         sidebarOverlay.addEventListener('click', closeSidebar);
+
+        // Sidebar tabs
+        document.querySelectorAll('.sidebar-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.sidebar-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                const target = tab.dataset.tab;
+                convoList.style.display = target === 'conversations' ? '' : 'none';
+                memoryList.style.display = target === 'memory' ? '' : 'none';
+                if (target === 'memory') loadMemory();
+            });
+        });
+
+        // ===== MODE SELECTOR =====
+        async function loadModes() {
+            try {
+                const res = await fetch(`${API_BASE}/api/modes`);
+                const modes = await res.json();
+                modeSelect.innerHTML = '';
+                for (const [key, val] of Object.entries(modes)) {
+                    const opt = document.createElement('option');
+                    opt.value = key;
+                    opt.textContent = val.name;
+                    if (val.active) { opt.selected = true; currentMode = key; }
+                    modeSelect.appendChild(opt);
+                }
+            } catch (e) {
+                modeSelect.innerHTML = '<option value="default">Default</option>';
+            }
+        }
+
+        modeSelect.addEventListener('change', async () => {
+            try {
+                const res = await fetch(`${API_BASE}/api/modes`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mode: modeSelect.value })
+                });
+                const data = await res.json();
+                if (data.status === 'switched') {
+                    currentMode = modeSelect.value;
+                    addMessage(`Mode switched to: ${data.name}`, 'system-action');
+                }
+            } catch (e) {}
+        });
+
+        // ===== MEMORY PANEL =====
+        async function loadMemory() {
+            try {
+                const res = await fetch(`${API_BASE}/api/memory`);
+                const entries = await res.json();
+                memoryList.innerHTML = '';
+                for (const e of entries) {
+                    const item = document.createElement('div');
+                    item.className = 'memory-item';
+                    item.innerHTML = `
+                        <div class="memory-item-header">
+                            <span class="memory-type ${e.type}">${e.type}</span>
+                            <span class="memory-name">${escapeHtml(e.name)}</span>
+                            <button class="memory-delete" data-id="${e.id}" title="Delete">&times;</button>
+                        </div>
+                        <div class="memory-content">${escapeHtml(e.content.substring(0, 200))}</div>
+                    `;
+                    item.querySelector('.memory-delete').addEventListener('click', async () => {
+                        await fetch(`${API_BASE}/api/memory/${e.id}`, { method: 'DELETE' });
+                        loadMemory();
+                    });
+                    memoryList.appendChild(item);
+                }
+                const addBtn = document.createElement('button');
+                addBtn.id = 'memory-add-btn';
+                addBtn.textContent = '+ Add Memory';
+                addBtn.addEventListener('click', promptAddMemory);
+                memoryList.appendChild(addBtn);
+            } catch (e) {
+                memoryList.innerHTML = '<div style="padding:12px;color:#888;font-size:12px">Failed to load memory</div>';
+            }
+        }
+
+        function promptAddMemory() {
+            const type = prompt('Type (user, feedback, project, reference):');
+            if (!type) return;
+            const name = prompt('Name:');
+            if (!name) return;
+            const content = prompt('Content:');
+            if (!content) return;
+            fetch(`${API_BASE}/api/memory`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type, name, content })
+            }).then(() => loadMemory()).catch(() => {});
+        }
 
         // ===== CONVERSATION MANAGEMENT =====
         function getConversations() {
-            try {
-                return JSON.parse(localStorage.getItem('nemo-conversations') || '[]');
-            } catch { return []; }
+            try { return JSON.parse(localStorage.getItem('nemo-conversations') || '[]'); }
+            catch { return []; }
         }
-
-        function saveConversations(convos) {
-            localStorage.setItem('nemo-conversations', JSON.stringify(convos));
-        }
-
-        function generateConvoId() {
-            return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-        }
-
+        function saveConversations(convos) { localStorage.setItem('nemo-conversations', JSON.stringify(convos)); }
+        function generateConvoId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
         function getConvoTitle(messages) {
             const firstUser = messages.find(m => m.role === 'user');
             if (!firstUser) return 'New conversation';
@@ -673,10 +599,8 @@
         function autoSaveConversation() {
             const messages = getCurrentMessages();
             if (messages.length === 0) return;
-
             const convos = getConversations();
             const now = new Date().toISOString();
-
             if (currentConvoId) {
                 const idx = convos.findIndex(c => c.id === currentConvoId);
                 if (idx >= 0) {
@@ -686,26 +610,13 @@
                 }
             } else {
                 currentConvoId = generateConvoId();
-                convos.unshift({
-                    id: currentConvoId,
-                    title: getConvoTitle(messages),
-                    messages,
-                    created: now,
-                    updated: now,
-                });
+                convos.unshift({ id: currentConvoId, title: getConvoTitle(messages), messages, created: now, updated: now });
             }
             saveConversations(convos);
             renderConvoList();
-
-            // Also save to server
             fetch(`${API_BASE}/api/conversations`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    id: currentConvoId,
-                    title: getConvoTitle(messages),
-                    messages,
-                }),
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: currentConvoId, title: getConvoTitle(messages), messages }),
             }).catch(() => {});
         }
 
@@ -722,10 +633,7 @@
                     <button class="convo-delete" title="Delete">&times;</button>
                 `;
                 item.querySelector('.convo-title').addEventListener('click', () => loadConversation(c.id));
-                item.querySelector('.convo-delete').addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    deleteConversation(c.id);
-                });
+                item.querySelector('.convo-delete').addEventListener('click', (e) => { e.stopPropagation(); deleteConversation(c.id); });
                 convoList.appendChild(item);
             }
         }
@@ -734,30 +642,18 @@
             const convos = getConversations();
             const convo = convos.find(c => c.id === id);
             if (!convo) return;
-
             currentConvoId = id;
             chat.innerHTML = '';
             turnIndex = 0;
-
-            // Clear server history
             fetch(`${API_BASE}/api/clear`, { method: 'POST' }).catch(() => {});
-
             for (const msg of convo.messages) {
-                if (msg.role === 'reasoning') {
-                    addMessage(msg.content, 'reasoning');
-                } else {
-                    addMessage(msg.content, msg.role);
-                }
+                addMessage(msg.content, msg.role === 'reasoning' ? 'reasoning' : msg.role);
             }
-
-            // Re-send history to server for context
             const chatMessages = convo.messages.filter(m => m.role === 'user' || m.role === 'assistant');
             fetch(`${API_BASE}/api/history/restore`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ messages: chatMessages }),
             }).catch(() => {});
-
             renderConvoList();
             closeSidebar();
         }
@@ -766,62 +662,41 @@
             let convos = getConversations();
             convos = convos.filter(c => c.id !== id);
             saveConversations(convos);
-
             if (id === currentConvoId) {
-                currentConvoId = null;
-                chat.innerHTML = '';
-                turnIndex = 0;
+                currentConvoId = null; chat.innerHTML = ''; turnIndex = 0;
                 fetch(`${API_BASE}/api/clear`, { method: 'POST' }).catch(() => {});
             }
-
-            // Also delete from server
             fetch(`${API_BASE}/api/conversations/${id}`, { method: 'DELETE' }).catch(() => {});
-
             renderConvoList();
         }
 
         function startNewConversation() {
-            // Save current if it has messages
             autoSaveConversation();
-
-            currentConvoId = null;
-            chat.innerHTML = '';
-            turnIndex = 0;
+            currentConvoId = null; chat.innerHTML = ''; turnIndex = 0;
             fetch(`${API_BASE}/api/clear`, { method: 'POST' }).catch(() => {});
-            renderConvoList();
-            closeSidebar();
-            input.focus();
+            renderConvoList(); closeSidebar(); input.focus();
         }
-
         newConvoBtn.addEventListener('click', startNewConversation);
 
         // ===== SETTINGS =====
         settingsBtn.addEventListener('click', () => settingsPanel.classList.toggle('open'));
-
         function saveSettings() {
             const sysprompt = document.getElementById('cfg-system-prompt').value;
             temperature = parseFloat(document.getElementById('cfg-temperature').value) || 0.7;
             maxTokens = parseInt(document.getElementById('cfg-max-tokens').value) || 2048;
-
             fetch(`${API_BASE}/api/config`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ system_prompt: sysprompt })
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ system_prompt: sysprompt || null })
             }).then(() => settingsPanel.classList.remove('open'));
         }
 
         // ===== IMAGE MODAL =====
         imageModal.addEventListener('click', () => imageModal.classList.remove('active'));
-
-        function openImageModal(src) {
-            modalImg.src = src;
-            imageModal.classList.add('active');
-        }
+        function openImageModal(src) { modalImg.src = src; imageModal.classList.add('active'); }
 
         // ===== SCROLL BUTTON =====
         function updateScrollButton() {
-            const threshold = 100;
-            const isNearBottom = chat.scrollHeight - chat.scrollTop - chat.clientHeight < threshold;
+            const isNearBottom = chat.scrollHeight - chat.scrollTop - chat.clientHeight < 100;
             scrollBottomBtn.classList.toggle('visible', !isNearBottom);
         }
         chat.addEventListener('scroll', updateScrollButton);
@@ -833,23 +708,17 @@
             input.style.height = Math.min(input.scrollHeight, 120) + 'px';
             sendBtn.disabled = !input.value.trim();
         });
-
         input.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 if (!sendBtn.disabled && !isSending) sendMessage();
             }
         });
-
         sendBtn.addEventListener('click', () => { if (!isSending) sendMessage(); });
-
         clearBtn.addEventListener('click', () => {
             if (!confirm('Clear conversation?')) return;
             fetch(`${API_BASE}/api/clear`, { method: 'POST' });
-            chat.innerHTML = '';
-            turnIndex = 0;
-            currentConvoId = null;
-            renderConvoList();
+            chat.innerHTML = ''; turnIndex = 0; currentConvoId = null; renderConvoList();
         });
 
         // ===== UTILITIES =====
@@ -869,8 +738,6 @@
                 msg.dataset.turn = thisTurn;
                 msg.dataset.raw = content;
                 msg.textContent = content;
-
-                // Edit button
                 const editBtn = document.createElement('button');
                 editBtn.className = 'edit-btn';
                 editBtn.textContent = 'Edit';
@@ -880,8 +747,6 @@
             } else if (role === 'assistant') {
                 msg.dataset.raw = content;
                 msg.innerHTML = marked.parse(content);
-
-                // Render KaTeX
                 renderMathInElement(msg, {
                     delimiters: [
                         { left: '$$', right: '$$', display: true },
@@ -891,83 +756,20 @@
                     ],
                     throwOnError: false
                 });
-
-                // Wrap tables
                 msg.querySelectorAll('table').forEach(table => {
                     const wrap = document.createElement('div');
                     wrap.className = 'table-wrap';
                     table.parentNode.insertBefore(wrap, table);
                     wrap.appendChild(table);
                 });
-
-                // Click images to open modal
                 msg.querySelectorAll('img').forEach(img => {
                     img.addEventListener('click', () => openImageModal(img.src));
                 });
-
-                // Copy button
-                const copyBtn = document.createElement('button');
-                copyBtn.className = 'copy-btn';
-                copyBtn.title = 'Copy';
-                copyBtn.textContent = '\u2398';
-                copyBtn.addEventListener('click', () => {
-                    navigator.clipboard.writeText(content).then(() => {
-                        copyBtn.textContent = '\u2713';
-                        copyBtn.classList.add('copied');
-                        setTimeout(() => { copyBtn.textContent = '\u2398'; copyBtn.classList.remove('copied'); }, 1500);
-                    }).catch(() => {
-                        // Fallback
-                        const ta = document.createElement('textarea');
-                        ta.value = content;
-                        ta.style.position = 'fixed';
-                        ta.style.opacity = '0';
-                        document.body.appendChild(ta);
-                        ta.select();
-                        document.execCommand('copy');
-                        document.body.removeChild(ta);
-                        copyBtn.textContent = '\u2713';
-                        copyBtn.classList.add('copied');
-                        setTimeout(() => { copyBtn.textContent = '\u2398'; copyBtn.classList.remove('copied'); }, 1500);
-                    });
-                });
-                msg.appendChild(copyBtn);
-
-                // Eval buttons (thumbs up/down)
-                const evalWrap = document.createElement('span');
-                evalWrap.className = 'eval-btns';
-                evalWrap._rawContent = content;
-                [['👍', 1], ['👎', -1]].forEach(([icon, score]) => {
-                    const eb = document.createElement('button');
-                    eb.className = 'eval-btn';
-                    eb.title = score === 1 ? 'Good response' : 'Poor response';
-                    eb.textContent = icon;
-                    eb.addEventListener('click', async () => {
-                        if (evalWrap.dataset.scored) return;
-                        evalWrap.dataset.scored = '1';
-                        evalWrap.querySelectorAll('.eval-btn').forEach(b => b.disabled = true);
-                        eb.classList.add('eval-selected');
-                        await fetch(`${API_BASE}/api/evaluate`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                score,
-                                session_id: SESSION_ID,
-                                message_preview: content.slice(0, 200),
-                            })
-                        }).catch(() => {});
-                    });
-                    evalWrap.appendChild(eb);
-                });
-                msg.appendChild(evalWrap);
-
-                // Regenerate button (only on last assistant message; updated dynamically)
-                const regenBtn = document.createElement('button');
-                regenBtn.className = 'regen-btn';
-                regenBtn.textContent = 'Regenerate';
-                regenBtn.addEventListener('click', () => regenerateLastResponse());
-                msg.appendChild(regenBtn);
+                addAssistantControls(msg, content);
 
             } else if (role === 'reasoning') {
+                msg.textContent = content;
+            } else if (role === 'system-action') {
                 msg.textContent = content;
             }
 
@@ -976,63 +778,82 @@
             return msg;
         }
 
-        // ===== EDIT MESSAGE =====
+        function addAssistantControls(msg, content) {
+            // Copy
+            const copyBtn = document.createElement('button');
+            copyBtn.className = 'copy-btn';
+            copyBtn.title = 'Copy';
+            copyBtn.textContent = '\u2398';
+            copyBtn.addEventListener('click', () => {
+                navigator.clipboard.writeText(content).then(() => {
+                    copyBtn.textContent = '\u2713'; copyBtn.classList.add('copied');
+                    setTimeout(() => { copyBtn.textContent = '\u2398'; copyBtn.classList.remove('copied'); }, 1500);
+                }).catch(() => {});
+            });
+            msg.appendChild(copyBtn);
+
+            // Eval
+            const evalWrap = document.createElement('span');
+            evalWrap.className = 'eval-btns';
+            [['👍', 1], ['👎', -1]].forEach(([icon, score]) => {
+                const eb = document.createElement('button');
+                eb.className = 'eval-btn';
+                eb.title = score === 1 ? 'Good response' : 'Poor response';
+                eb.textContent = icon;
+                eb.addEventListener('click', async () => {
+                    if (evalWrap.dataset.scored) return;
+                    evalWrap.dataset.scored = '1';
+                    evalWrap.querySelectorAll('.eval-btn').forEach(b => b.disabled = true);
+                    eb.classList.add('eval-selected');
+                    await fetch(`${API_BASE}/api/evaluate`, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ score, session_id: SESSION_ID, message_preview: content.slice(0, 200) })
+                    }).catch(() => {});
+                });
+                evalWrap.appendChild(eb);
+            });
+            msg.appendChild(evalWrap);
+
+            // Regenerate
+            const regenBtn = document.createElement('button');
+            regenBtn.className = 'regen-btn';
+            regenBtn.textContent = 'Regenerate';
+            regenBtn.addEventListener('click', () => regenerateLastResponse());
+            msg.appendChild(regenBtn);
+        }
+
+        // ===== EDIT =====
         function startEdit(turn, rawContent) {
             if (isSending) return;
             const msgEl = chat.querySelector(`.message.user[data-turn="${turn}"]`);
             if (!msgEl) return;
-
-            // Remove target message and everything after it
             let el = msgEl;
-            while (el) {
-                const next = el.nextSibling;
-                chat.removeChild(el);
-                el = next;
-            }
-
+            while (el) { const next = el.nextSibling; chat.removeChild(el); el = next; }
             turnIndex = turn;
             pendingEditTurn = turn;
             input.value = rawContent;
             input.dispatchEvent(new Event('input'));
             input.focus();
-
-            // Auto-save after edit removes messages
             autoSaveConversation();
         }
 
         // ===== REGENERATE =====
         function regenerateLastResponse() {
             if (isSending) return;
-
-            // Find the last assistant message
             const assistantMsgs = chat.querySelectorAll('.message.assistant:not(.typing)');
             if (assistantMsgs.length === 0) return;
             const lastAssistant = assistantMsgs[assistantMsgs.length - 1];
-
-            // Find the preceding reasoning message if any
             let prevEl = lastAssistant.previousElementSibling;
-            if (prevEl && prevEl.classList.contains('reasoning')) {
-                prevEl.remove();
-            }
-
-            // Find the user message that preceded this response
+            if (prevEl && prevEl.classList.contains('reasoning')) prevEl.remove();
             const allMsgs = Array.from(chat.querySelectorAll('.message'));
             const assistantIdx = allMsgs.indexOf(lastAssistant);
             let userMsg = null;
             for (let i = assistantIdx - 1; i >= 0; i--) {
-                if (allMsgs[i].classList.contains('user')) {
-                    userMsg = allMsgs[i];
-                    break;
-                }
+                if (allMsgs[i].classList.contains('user')) { userMsg = allMsgs[i]; break; }
             }
-
             if (!userMsg) return;
             const userText = userMsg.dataset.raw || userMsg.textContent;
-
-            // Remove the assistant message
             lastAssistant.remove();
-
-            // Re-send the user message (without adding it to chat again)
             doSendMessage(userText, true);
         }
 
@@ -1042,18 +863,15 @@
             statusDot.title = text;
         }
 
-        // ===== SEND MESSAGE =====
+        // ===== SEND MESSAGE (Two-Phase Job Queue) =====
         async function sendMessage() {
             const text = input.value.trim();
             if (!text) return;
-
             input.value = '';
             input.style.height = 'auto';
             sendBtn.disabled = true;
-
             addMessage(text, 'user');
             pendingEditTurn = null;
-
             await doSendMessage(text, false);
         }
 
@@ -1061,28 +879,27 @@
             isSending = true;
             sendBtn.disabled = true;
 
-            // Typing indicator
+            // Close any existing EventSource
+            if (currentEventSource) {
+                currentEventSource.close();
+                currentEventSource = null;
+            }
+
             const typingMsg = document.createElement('div');
             typingMsg.className = 'message assistant typing';
             typingMsg.textContent = 'Thinking...';
             chat.appendChild(typingMsg);
             chat.scrollTop = chat.scrollHeight;
 
-            let responseChunks = [];
-            let reasoningChunks = [];
-            let reasoningMsg = null;
-            let responseMsg = null;
-
             try {
+                // Phase 1: Create job
                 const payload = {
                     message: text,
                     model: modelSelect.value || currentModel,
                     temperature,
                     max_tokens: maxTokens,
                 };
-                if (isRegenerate) {
-                    payload.regenerate = true;
-                }
+                if (isRegenerate) payload.regenerate = true;
 
                 const res = await fetch(`${API_BASE}/api/chat`, {
                     method: 'POST',
@@ -1090,156 +907,129 @@
                     body: JSON.stringify(payload)
                 });
 
-                typingMsg.remove();
-
-                const reader = res.body.getReader();
-                const decoder = new TextDecoder();
-                let buffer = '';
-
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-
-                    buffer += decoder.decode(value, { stream: true });
-                    const lines = buffer.split('\n');
-                    buffer = lines.pop();
-
-                    for (const line of lines) {
-                        if (!line.startsWith('data: ')) continue;
-                        try {
-                            const event = JSON.parse(line.slice(6));
-
-                            if (event.type === 'reasoning') {
-                                reasoningChunks.push(event.content);
-                                if (!reasoningMsg) {
-                                    reasoningMsg = document.createElement('div');
-                                    reasoningMsg.className = 'message reasoning';
-                                    chat.appendChild(reasoningMsg);
-                                }
-                                reasoningMsg.textContent = reasoningChunks.join('');
-                                chat.scrollTop = chat.scrollHeight;
-                            } else if (event.type === 'content') {
-                                responseChunks.push(event.content);
-                                if (!responseMsg) {
-                                    responseMsg = document.createElement('div');
-                                    responseMsg.className = 'message assistant';
-                                    chat.appendChild(responseMsg);
-                                }
-                                responseMsg.innerHTML = marked.parse(responseChunks.join(''));
-                                chat.scrollTop = chat.scrollHeight;
-                            } else if (event.type === 'usage') {
-                                if (responseMsg) {
-                                    const badge = document.createElement('div');
-                                    badge.className = 'token-badge';
-                                    badge.textContent = `\u26A1 ${(event.prompt_tokens || 0).toLocaleString()} in / ${(event.completion_tokens || 0).toLocaleString()} out`;
-                                    responseMsg.appendChild(badge);
-                                }
-                            } else if (event.type === 'error') {
-                                addMessage('Error: ' + event.message, 'assistant');
-                            } else if (event.type === 'done') {
-                                // Finalize rendering
-                                if (responseMsg) {
-                                    const fullContent = responseChunks.join('');
-                                    responseMsg.dataset.raw = fullContent;
-
-                                    // Re-render with KaTeX
-                                    renderMathInElement(responseMsg, {
-                                        delimiters: [
-                                            { left: '$$', right: '$$', display: true },
-                                            { left: '$', right: '$', display: false },
-                                            { left: '\\[', right: '\\]', display: true },
-                                            { left: '\\(', right: '\\)', display: false }
-                                        ],
-                                        throwOnError: false
-                                    });
-
-                                    // Wrap tables
-                                    responseMsg.querySelectorAll('table').forEach(table => {
-                                        if (table.parentElement.classList.contains('table-wrap')) return;
-                                        const wrap = document.createElement('div');
-                                        wrap.className = 'table-wrap';
-                                        table.parentNode.insertBefore(wrap, table);
-                                        wrap.appendChild(table);
-                                    });
-
-                                    // Click images to open modal
-                                    responseMsg.querySelectorAll('img').forEach(img => {
-                                        img.addEventListener('click', () => openImageModal(img.src));
-                                    });
-
-                                    // Copy button
-                                    const copyBtn = document.createElement('button');
-                                    copyBtn.className = 'copy-btn';
-                                    copyBtn.title = 'Copy';
-                                    copyBtn.textContent = '\u2398';
-                                    copyBtn.addEventListener('click', () => {
-                                        navigator.clipboard.writeText(fullContent).then(() => {
-                                            copyBtn.textContent = '\u2713';
-                                            copyBtn.classList.add('copied');
-                                            setTimeout(() => { copyBtn.textContent = '\u2398'; copyBtn.classList.remove('copied'); }, 1500);
-                                        }).catch(() => {
-                                            const ta = document.createElement('textarea');
-                                            ta.value = fullContent;
-                                            ta.style.position = 'fixed';
-                                            ta.style.opacity = '0';
-                                            document.body.appendChild(ta);
-                                            ta.select();
-                                            document.execCommand('copy');
-                                            document.body.removeChild(ta);
-                                            copyBtn.textContent = '\u2713';
-                                            copyBtn.classList.add('copied');
-                                            setTimeout(() => { copyBtn.textContent = '\u2398'; copyBtn.classList.remove('copied'); }, 1500);
-                                        });
-                                    });
-                                    responseMsg.appendChild(copyBtn);
-
-                                    // Eval buttons
-                                    const evalWrap = document.createElement('span');
-                                    evalWrap.className = 'eval-btns';
-                                    evalWrap._rawContent = fullContent;
-                                    [['👍', 1], ['👎', -1]].forEach(([icon, score]) => {
-                                        const eb = document.createElement('button');
-                                        eb.className = 'eval-btn';
-                                        eb.title = score === 1 ? 'Good response' : 'Poor response';
-                                        eb.textContent = icon;
-                                        eb.addEventListener('click', async () => {
-                                            if (evalWrap.dataset.scored) return;
-                                            evalWrap.dataset.scored = '1';
-                                            evalWrap.querySelectorAll('.eval-btn').forEach(b => b.disabled = true);
-                                            eb.classList.add('eval-selected');
-                                            await fetch(`${API_BASE}/api/evaluate`, {
-                                                method: 'POST',
-                                                headers: { 'Content-Type': 'application/json' },
-                                                body: JSON.stringify({
-                                                    score,
-                                                    session_id: SESSION_ID,
-                                                    message_preview: fullContent.slice(0, 200),
-                                                })
-                                            }).catch(() => {});
-                                        });
-                                        evalWrap.appendChild(eb);
-                                    });
-                                    responseMsg.appendChild(evalWrap);
-
-                                    // Regenerate button
-                                    const regenBtn = document.createElement('button');
-                                    regenBtn.className = 'regen-btn';
-                                    regenBtn.textContent = 'Regenerate';
-                                    regenBtn.addEventListener('click', () => regenerateLastResponse());
-                                    responseMsg.appendChild(regenBtn);
-                                }
-
-                                // Auto-save conversation
-                                autoSaveConversation();
-                            }
-                        } catch (e) {}
-                    }
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({ error: 'Unknown error' }));
+                    typingMsg.remove();
+                    addMessage('Error: ' + (err.error || `HTTP ${res.status}`), 'assistant');
+                    isSending = false;
+                    sendBtn.disabled = !input.value.trim();
+                    return;
                 }
+
+                const { job_id } = await res.json();
+
+                // Phase 2: SSE stream with Last-Event-ID support
+                typingMsg.textContent = 'Connecting to stream...';
+
+                let responseChunks = [];
+                let reasoningChunks = [];
+                let reasoningMsg = null;
+                let responseMsg = null;
+                let lastEventId = null;
+
+                await new Promise((resolve) => {
+                    function connectSSE(fromId) {
+                        const url = `${API_BASE}/api/stream/${job_id}`;
+                        const es = new EventSource(url);
+                        currentEventSource = es;
+
+                        // Note: EventSource auto-sends Last-Event-ID on reconnect
+
+                        es.onmessage = (event) => {
+                            lastEventId = event.lastEventId;
+                            try {
+                                const data = JSON.parse(event.data);
+
+                                if (data.type === 'status') {
+                                    typingMsg.textContent = data.message;
+                                } else if (data.type === 'reasoning') {
+                                    if (typingMsg.parentNode) typingMsg.remove();
+                                    reasoningChunks.push(data.content);
+                                    if (!reasoningMsg) {
+                                        reasoningMsg = document.createElement('div');
+                                        reasoningMsg.className = 'message reasoning';
+                                        chat.appendChild(reasoningMsg);
+                                    }
+                                    reasoningMsg.textContent = reasoningChunks.join('');
+                                    chat.scrollTop = chat.scrollHeight;
+                                } else if (data.type === 'content') {
+                                    if (typingMsg.parentNode) typingMsg.remove();
+                                    responseChunks.push(data.content);
+                                    if (!responseMsg) {
+                                        responseMsg = document.createElement('div');
+                                        responseMsg.className = 'message assistant';
+                                        chat.appendChild(responseMsg);
+                                    }
+                                    responseMsg.innerHTML = marked.parse(responseChunks.join(''));
+                                    chat.scrollTop = chat.scrollHeight;
+                                } else if (data.type === 'usage') {
+                                    if (responseMsg) {
+                                        const badge = document.createElement('div');
+                                        badge.className = 'token-badge';
+                                        badge.textContent = `\u26A1 ${(data.prompt_tokens || 0).toLocaleString()} in / ${(data.completion_tokens || 0).toLocaleString()} out`;
+                                        responseMsg.appendChild(badge);
+                                    }
+                                } else if (data.type === 'action') {
+                                    addMessage(data.message, 'system-action');
+                                } else if (data.type === 'error') {
+                                    if (typingMsg.parentNode) typingMsg.remove();
+                                    addMessage('Error: ' + data.message, 'assistant');
+                                    es.close();
+                                    resolve();
+                                } else if (data.type === 'interrupted') {
+                                    if (typingMsg.parentNode) typingMsg.remove();
+                                    es.close();
+                                    resolve();
+                                } else if (data.type === 'done') {
+                                    if (typingMsg.parentNode) typingMsg.remove();
+
+                                    // Finalize response
+                                    if (responseMsg) {
+                                        const fullContent = responseChunks.join('');
+                                        responseMsg.dataset.raw = fullContent;
+                                        renderMathInElement(responseMsg, {
+                                            delimiters: [
+                                                { left: '$$', right: '$$', display: true },
+                                                { left: '$', right: '$', display: false },
+                                                { left: '\\[', right: '\\]', display: true },
+                                                { left: '\\(', right: '\\)', display: false }
+                                            ],
+                                            throwOnError: false
+                                        });
+                                        responseMsg.querySelectorAll('table').forEach(table => {
+                                            if (table.parentElement.classList.contains('table-wrap')) return;
+                                            const wrap = document.createElement('div');
+                                            wrap.className = 'table-wrap';
+                                            table.parentNode.insertBefore(wrap, table);
+                                            wrap.appendChild(table);
+                                        });
+                                        responseMsg.querySelectorAll('img').forEach(img => {
+                                            img.addEventListener('click', () => openImageModal(img.src));
+                                        });
+                                        addAssistantControls(responseMsg, fullContent);
+                                    }
+                                    autoSaveConversation();
+                                    es.close();
+                                    resolve();
+                                }
+                            } catch (e) {}
+                        };
+
+                        es.onerror = () => {
+                            // EventSource auto-reconnects with Last-Event-ID
+                            // If we get too many errors, give up
+                        };
+                    }
+
+                    connectSSE(null);
+                });
+
             } catch (e) {
                 typingMsg.remove();
                 addMessage('Connection error: ' + e.message, 'assistant');
             }
 
+            currentEventSource = null;
             isSending = false;
             sendBtn.disabled = !input.value.trim();
         }
@@ -1251,8 +1041,13 @@
                 const data = await res.json();
                 if (data.status === 'connected') {
                     setStatus('Connected to ' + data.model, 'connected');
-                    modelInfo.textContent = `${data.model} @ ${data.api_base}`;
+                    let infoText = `${data.model} @ ${data.api_base}`;
                     currentModel = data.model;
+
+                    // Circuit breaker badge
+                    const breakerState = data.circuit_breaker || 'closed';
+                    const breakerBadge = `<span class="breaker-badge ${breakerState}">${breakerState}</span>`;
+                    modelInfo.innerHTML = `${escapeHtml(infoText)} ${breakerBadge}`;
                 } else {
                     setStatus('Disconnected', 'error');
                     modelInfo.textContent = 'Disconnected from inference server';
@@ -1287,9 +1082,7 @@
             try {
                 const res = await fetch(`${API_BASE}/api/history`);
                 const history = await res.json();
-                for (const msg of history) {
-                    addMessage(msg.content, msg.role);
-                }
+                for (const msg of history) addMessage(msg.content, msg.role);
             } catch (e) {}
         }
 
@@ -1298,7 +1091,7 @@
             try {
                 const res = await fetch(`${API_BASE}/api/config`);
                 const cfg = await res.json();
-                document.getElementById('cfg-system-prompt').value = cfg.system_prompt || '';
+                document.getElementById('cfg-system-prompt').value = cfg.custom_system_prompt || '';
             } catch (e) {}
         }
 
@@ -1306,6 +1099,7 @@
         checkStatus();
         loadHistory();
         loadConfig();
+        loadModes();
         renderConvoList();
         setTimeout(loadModels, 500);
         setInterval(checkStatus, 30000);
