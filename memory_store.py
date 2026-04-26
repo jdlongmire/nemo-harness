@@ -165,7 +165,7 @@ def delete_entry(entry_id: int) -> bool:
 
 
 def build_context_block(
-    max_tokens: int = 500,
+    max_tokens: int = 1000,
     score_fn: Callable[[dict], float] | None = None,
 ) -> str:
     """Build a memory context block for system prompt injection.

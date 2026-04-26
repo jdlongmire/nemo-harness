@@ -86,13 +86,16 @@ INTENT_TOOLS: dict[str, set[str]] = {
 }
 
 # Behavioral guide keys relevant to each intent
+# Self-hosted model: no per-token cost, so include all guides always.
+# Context window is the only constraint; token budgets have headroom.
+_ALL_GUIDES = ['behavioral_core', 'design', 'memory', 'clarification', 'planning']
 INTENT_GUIDES: dict[str, list[str]] = {
-    'coding': ['behavioral_core', 'memory', 'clarification'],
-    'document': ['behavioral_core', 'design', 'memory', 'clarification'],
-    'research': ['behavioral_core', 'memory', 'clarification'],
-    'planning': ['behavioral_core', 'planning', 'memory', 'clarification'],
-    'git': ['behavioral_core', 'memory'],
-    'conversation': ['behavioral_core', 'memory', 'clarification', 'design', 'planning'],
+    'coding': list(_ALL_GUIDES),
+    'document': list(_ALL_GUIDES),
+    'research': list(_ALL_GUIDES),
+    'planning': list(_ALL_GUIDES),
+    'git': list(_ALL_GUIDES),
+    'conversation': list(_ALL_GUIDES),
 }
 
 # Hysteresis: require this many consecutive signals before switching

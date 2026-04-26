@@ -73,9 +73,9 @@ tools.svg_tools.register(_sandbox)
 MAX_TOOL_ITERATIONS = 10
 
 # --- Context Window Management ---
-HISTORY_TOKEN_BUDGET = int(os.environ.get('NEMO_HISTORY_TOKEN_BUDGET', '2500'))
-SUMMARY_TOKEN_BUDGET = 200
-VERBATIM_TOOL_RESULTS = 3  # Keep last N tool results unmasked
+HISTORY_TOKEN_BUDGET = int(os.environ.get('NEMO_HISTORY_TOKEN_BUDGET', '3500'))
+SUMMARY_TOKEN_BUDGET = 400
+VERBATIM_TOOL_RESULTS = 5  # Keep last N tool results unmasked (self-hosted: no per-token cost)
 
 
 def estimate_tokens(text: str) -> int:
@@ -152,8 +152,40 @@ def window_by_tokens(messages: list[dict], budget: int = HISTORY_TOKEN_BUDGET) -
     return windowed, evicted
 
 
-def build_running_summary(evicted: list[dict], existing_summary: str = '') -> str:
-    """Build a running summary from evicted messages using heuristic extraction."""
+async def _summarize_via_model(text: str, existing_summary: str = '') -> str | None:
+    """Call the inference API for a concise summary. Returns None on failure."""
+    prompt = 'Summarize the following conversation excerpt in 3-5 bullet points. Be concise.'
+    if existing_summary:
+        prompt += f'\n\nPrior context:\n{existing_summary}'
+    prompt += f'\n\nConversation:\n{text}'
+
+    payload = {
+        'model': CFG['model'],
+        'messages': [
+            {'role': 'system', 'content': 'You are a summarization assistant. Output only bullet points.'},
+            {'role': 'user', 'content': prompt},
+        ],
+        'stream': False,
+        'temperature': 0.3,
+        'max_tokens': SUMMARY_TOKEN_BUDGET,
+    }
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                f'{CFG["api_base"]}/v1/chat/completions',
+                json=payload,
+                timeout=aiohttp.ClientTimeout(total=15),
+            ) as resp:
+                if resp.status != 200:
+                    return None
+                data = await resp.json()
+                return data['choices'][0]['message']['content'].strip()
+    except Exception:
+        return None
+
+
+def _heuristic_summary(evicted: list[dict], existing_summary: str = '') -> str:
+    """Fallback heuristic summary from evicted messages."""
     points = []
     if existing_summary:
         points.append(existing_summary)
@@ -166,11 +198,35 @@ def build_running_summary(evicted: list[dict], existing_summary: str = '') -> st
             if first_sentence.strip():
                 points.append(f"Assistant: {first_sentence}")
 
-    summary = '\n'.join(points[-10:])  # Keep last 10 points max
+    summary = '\n'.join(points[-10:])
     max_chars = SUMMARY_TOKEN_BUDGET * 4
     if len(summary) > max_chars:
         summary = summary[-max_chars:]
     return summary
+
+
+async def build_running_summary(evicted: list[dict], existing_summary: str = '') -> str:
+    """Build a running summary from evicted messages.
+
+    Uses the model itself for summarization (self-hosted = no per-call cost).
+    Falls back to heuristic extraction on failure.
+    """
+    text_parts = []
+    for msg in evicted:
+        content = msg.get('content', '')
+        if not content or content.startswith('[Previous tool'):
+            continue
+        role = msg.get('role', 'user')
+        text_parts.append(f'{role}: {content[:300]}')
+
+    if not text_parts:
+        return existing_summary
+
+    evicted_text = '\n'.join(text_parts[-15:])
+    result = await _summarize_via_model(evicted_text, existing_summary)
+    if result:
+        return result
+    return _heuristic_summary(evicted, existing_summary)
 
 
 _running_summary: str = ''
@@ -744,7 +800,7 @@ async def handle_chat(request: web.Request) -> web.Response:
     windowed, evicted = window_by_tokens(masked, HISTORY_TOKEN_BUDGET)
 
     if evicted:
-        _running_summary = build_running_summary(evicted, _running_summary)
+        _running_summary = await build_running_summary(evicted, _running_summary)
 
     messages = [system_msg]
     if _running_summary:
