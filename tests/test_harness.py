@@ -3,6 +3,10 @@
 Nemo Chatbot Competency Test Harness
 Sends prompts via API, streams SSE responses, evaluates results.
 Usage: python test_harness.py [--batch BATCH_NAME] [--base-url URL]
+
+IMPORTANT: The server has a single active job slot. Running multiple batches
+in parallel (e.g., via separate agents) causes job interruption — each new
+/api/chat request kills the previous active job. Always run batches sequentially.
 """
 
 import argparse
@@ -86,7 +90,7 @@ def chat_and_collect(message: str, timeout: int = 120) -> dict:
                         raw_events.append(event)
                         etype = event.get("type", "")
 
-                        if etype == "token":
+                        if etype in ("token", "content"):
                             text_parts.append(event.get("content", ""))
                         elif etype == "tool_call":
                             tool_calls.append(event)
