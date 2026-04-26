@@ -8,12 +8,14 @@ Provides context injection for system prompts and CRUD operations.
 import json
 import logging
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
+from typing import Callable
 
 logger = logging.getLogger('nemo-harness.memory')
 
 DB_PATH = Path(__file__).parent / 'memory' / 'memory.db'
+MEMORY_MD_PATH = Path(__file__).parent / 'memory.md'
 
 _VALID_TYPES = ('user', 'feedback', 'project', 'reference')
 _TYPE_MAP = {
@@ -22,6 +24,20 @@ _TYPE_MAP = {
     'reference': 'reference', 'references': 'reference',
     'account': 'reference', 'infrastructure': 'reference',
     'lesson': 'feedback', 'lessons': 'feedback',
+}
+
+_TYPE_TTL_DAYS = {
+    'user': None,       # infinite
+    'feedback': None,   # infinite
+    'project': 90,      # 90 days
+    'reference': None,  # infinite
+}
+
+_TYPE_HEADERS = {
+    'user': '## User Profile',
+    'feedback': '## Facts & Preferences',
+    'project': '## Project Context',
+    'reference': '## References',
 }
 
 
@@ -84,6 +100,7 @@ def upsert_entry(entry_type: str, name: str, description: str, content: str) -> 
             created = now
 
         conn.commit()
+        regenerate_memory_md()
         return {'id': entry_id, 'type': entry_type, 'name': name, 'description': description,
                 'content': content, 'created_at': created, 'updated_at': now}
     finally:
@@ -106,6 +123,21 @@ def get_entries(entry_type: str = None) -> list[dict]:
         conn.close()
 
 
+def get_active_entries(entry_type: str = None) -> list[dict]:
+    """Get entries filtered by TTL (stale entries excluded from results, not deleted)."""
+    entries = get_entries(entry_type)
+    now = datetime.now(timezone.utc)
+    active = []
+    for e in entries:
+        ttl_days = _TYPE_TTL_DAYS.get(e['type'])
+        if ttl_days is not None:
+            updated = datetime.fromisoformat(e['updated_at'])
+            if (now - updated) > timedelta(days=ttl_days):
+                continue
+        active.append(e)
+    return active
+
+
 def search_entries(query: str) -> list[dict]:
     """Search entries by name or content (case-insensitive)."""
     conn = _get_conn()
@@ -124,24 +156,71 @@ def delete_entry(entry_id: int) -> bool:
     try:
         cursor = conn.execute('DELETE FROM memory_entries WHERE id = ?', (entry_id,))
         conn.commit()
-        return cursor.rowcount > 0
+        if cursor.rowcount > 0:
+            regenerate_memory_md()
+            return True
+        return False
     finally:
         conn.close()
 
 
-def build_context_block(max_chars_per_entry: int = 400) -> str:
-    """Build a memory context block for system prompt injection."""
-    entries = get_entries()
+def build_context_block(
+    max_tokens: int = 500,
+    score_fn: Callable[[dict], float] | None = None,
+) -> str:
+    """Build a memory context block for system prompt injection.
+
+    Uses active entries (TTL-filtered). If score_fn is provided, entries are
+    sorted by score descending and greedily packed within token budget.
+    Otherwise, all active entries are included up to the budget.
+    """
+    entries = get_active_entries()
     if not entries:
         return ''
 
+    if score_fn is not None:
+        entries.sort(key=score_fn, reverse=True)
+
+    max_chars = max_tokens * 4
     lines = []
+    total_chars = 0
     for e in entries:
         tag = e['type'].upper()
-        content = e['content'][:max_chars_per_entry]
-        lines.append(f'[{tag}] {e["name"]}: {content}')
+        line = f'[{tag}] {e["name"]}: {e["content"]}'
+        line_len = len(line) + 1  # +1 for newline
+        if total_chars + line_len > max_chars:
+            break
+        lines.append(line)
+        total_chars += line_len
 
     return '\n'.join(lines)
+
+
+def regenerate_memory_md():
+    """Regenerate memory.md as a read-only projection of the SQLite store."""
+    entries = get_entries()
+    if not entries:
+        MEMORY_MD_PATH.write_text('# Nemo Memory\n\n*No entries stored.*\n')
+        return
+
+    by_type = {}
+    for e in entries:
+        by_type.setdefault(e['type'], []).append(e)
+
+    sections = []
+    for t in _VALID_TYPES:
+        if t not in by_type:
+            continue
+        header = _TYPE_HEADERS[t]
+        section_lines = [header, '']
+        for e in by_type[t]:
+            section_lines.append(f'**{e["name"]}:** {e["content"]}')
+            section_lines.append('')
+        sections.append('\n'.join(section_lines))
+
+    content = '# Nemo Memory\n\n' + '\n'.join(sections)
+    content += '\n---\n*Auto-generated from memory database. Do not edit directly.*\n'
+    MEMORY_MD_PATH.write_text(content)
 
 
 def db_health_check() -> dict:

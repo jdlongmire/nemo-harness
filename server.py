@@ -160,14 +160,12 @@ _CAPABILITIES = (
 
 _MEMORY_BEHAVIOR = (
     'Persistent memory:\n'
-    '- You have a persistent memory file at `memory.md` in your working directory.\n'
-    '- Its contents are loaded into your context (in the <memory> block below) at the start of every conversation.\n'
-    '- When you learn something important about the user, their projects, preferences, or ongoing work, '
-    'UPDATE memory.md using your write_file tool. Write the ENTIRE file contents (it overwrites).\n'
-    '- Keep memory.md organized with markdown headers: User Profile, Facts & Preferences, Project Context, Session Notes.\n'
+    '- Your persistent memory is stored in a database. The <memory> block in your context is auto-generated from it.\n'
+    '- To store new memories, use [ACTION:remember|type|name|description|content] tags in your response.\n'
+    '  Types: user (about the user), feedback (corrections/preferences), project (active work), reference (infra/accounts).\n'
+    '- Use /recall <query> to search your memory and /forget <id> to delete entries.\n'
     '- Be selective: save things that matter across conversations, not ephemeral details.\n'
-    '- You can read memory.md at any time with read_file to check what you already know.\n'
-    '- When updating, preserve existing content and add/modify as needed. Do not delete things unless they are wrong or outdated.\n'
+    '- Do NOT write to memory.md directly; it is auto-generated and will be overwritten.\n'
 )
 
 _PLANNING_BEHAVIOR = (
@@ -432,15 +430,10 @@ def get_effective_system_prompt() -> str:
     if tool_block:
         base_prompt += f'\n\n{tool_block}'
 
-    # Inject memory from memory.md (flat file, like CLAUDE.md)
-    memory_file = BASE_DIR / 'memory.md'
-    if memory_file.exists():
-        try:
-            mem_content = memory_file.read_text().strip()
-            if mem_content:
-                base_prompt += f'\n\n<memory>\n{mem_content}\n</memory>'
-        except Exception as e:
-            logger.warning('Failed to read memory.md: %s', e)
+    # Inject memory from SQLite via build_context_block()
+    mem_block = memory_store.build_context_block()
+    if mem_block:
+        base_prompt += f'\n\n<memory>\n{mem_block}\n</memory>'
 
     return base_prompt
 
