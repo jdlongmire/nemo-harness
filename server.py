@@ -71,6 +71,109 @@ tools.svg_tools.register(_sandbox)
 
 MAX_TOOL_ITERATIONS = 10
 
+# --- Context Window Management ---
+HISTORY_TOKEN_BUDGET = int(os.environ.get('NEMO_HISTORY_TOKEN_BUDGET', '2500'))
+SUMMARY_TOKEN_BUDGET = 200
+VERBATIM_TOOL_RESULTS = 3  # Keep last N tool results unmasked
+
+
+def estimate_tokens(text: str) -> int:
+    """Estimate token count using chars/4 heuristic."""
+    return len(text) // 4 if text else 0
+
+
+def message_tokens(msg: dict) -> int:
+    """Estimate tokens for a conversation message."""
+    content = msg.get('content', '')
+    if isinstance(content, str):
+        return estimate_tokens(content) + 4  # role overhead
+    return estimate_tokens(str(content)) + 4
+
+
+def mask_observations(messages: list[dict], keep_recent: int = VERBATIM_TOOL_RESULTS) -> list[dict]:
+    """Replace old tool result content with compact placeholders.
+
+    Tool results use <tool_result name="..."> format. Keep the most recent
+    `keep_recent` tool result messages verbatim; mask the rest.
+    """
+    tool_indices = [
+        i for i, m in enumerate(messages)
+        if m.get('role') == 'user' and '<tool_result' in m.get('content', '')
+    ]
+    to_mask = set(tool_indices[:-keep_recent]) if len(tool_indices) > keep_recent else set()
+    result = []
+    for i, msg in enumerate(messages):
+        if i in to_mask:
+            result.append({
+                'role': msg['role'],
+                'content': '[Previous tool results truncated]'
+            })
+        else:
+            result.append(msg)
+    return result
+
+
+def window_by_tokens(messages: list[dict], budget: int = HISTORY_TOKEN_BUDGET) -> tuple[list[dict], list[dict]]:
+    """Select recent messages that fit within token budget.
+
+    Returns (windowed, evicted) where windowed fits the budget
+    and evicted contains the rest. Never splits a tool-call from
+    its tool response (assistant followed by user with tool_result).
+    """
+    windowed = []
+    tokens_used = 0
+    cut_index = 0  # everything before this index is evicted
+
+    for i in range(len(messages) - 1, -1, -1):
+        msg = messages[i]
+        cost = message_tokens(msg)
+        if tokens_used + cost > budget:
+            cut_index = i + 1
+            break
+        tokens_used += cost
+    else:
+        # All messages fit
+        return list(messages), []
+
+    # Don't split tool-call pairs: if the cut lands between an assistant
+    # message and its tool-result user message, move the cut forward
+    if cut_index < len(messages):
+        msg_at_cut = messages[cut_index]
+        if (cut_index > 0
+                and msg_at_cut.get('role') == 'user'
+                and '<tool_result' in msg_at_cut.get('content', '')
+                and messages[cut_index - 1].get('role') == 'assistant'):
+            # The user tool-result is included but the assistant call is not — drop both
+            cut_index += 1
+
+    evicted = messages[:cut_index]
+    windowed = messages[cut_index:]
+    return windowed, evicted
+
+
+def build_running_summary(evicted: list[dict], existing_summary: str = '') -> str:
+    """Build a running summary from evicted messages using heuristic extraction."""
+    points = []
+    if existing_summary:
+        points.append(existing_summary)
+    for msg in evicted:
+        content = msg.get('content', '')
+        if msg['role'] == 'user' and not content.startswith('[') and not content.startswith('<'):
+            points.append(f"User asked: {content[:100]}")
+        elif msg['role'] == 'assistant':
+            first_sentence = content.split('.')[0][:120]
+            if first_sentence.strip():
+                points.append(f"Assistant: {first_sentence}")
+
+    summary = '\n'.join(points[-10:])  # Keep last 10 points max
+    max_chars = SUMMARY_TOKEN_BUDGET * 4
+    if len(summary) > max_chars:
+        summary = summary[-max_chars:]
+    return summary
+
+
+_running_summary: str = ''
+
 # --- Structured Logging ---
 logger = logging.getLogger('nemo-harness')
 logging.basicConfig(
@@ -548,7 +651,9 @@ async def handle_history(request: web.Request) -> web.Response:
 
 
 async def handle_clear(request: web.Request) -> web.Response:
+    global _running_summary
     conversation.clear()
+    _running_summary = ''
     return web.json_response({'status': 'cleared'})
 
 
@@ -559,7 +664,7 @@ async def handle_history_restore(request: web.Request) -> web.Response:
     for msg in messages:
         if msg.get('role') in ('user', 'assistant'):
             conversation.append({'role': msg['role'], 'content': msg.get('content', '')})
-    while len(conversation) > CFG['max_history']:
+    while len(conversation) > 200:
         conversation.pop(0)
     return web.json_response({'status': 'restored', 'count': len(conversation)})
 
@@ -591,9 +696,22 @@ async def handle_chat(request: web.Request) -> web.Response:
     else:
         conversation.append({'role': 'user', 'content': user_message})
 
-    # Build messages with behavioral system prompt
-    messages = [{'role': 'system', 'content': get_effective_system_prompt()}]
-    messages.extend(conversation[-CFG['max_history']:])
+    # Build messages with token-aware windowing
+    global _running_summary
+    system_msg = {'role': 'system', 'content': get_effective_system_prompt()}
+    masked = mask_observations(list(conversation))
+    windowed, evicted = window_by_tokens(masked, HISTORY_TOKEN_BUDGET)
+
+    if evicted:
+        _running_summary = build_running_summary(evicted, _running_summary)
+
+    messages = [system_msg]
+    if _running_summary:
+        messages.append({
+            'role': 'system',
+            'content': f'Previous conversation summary:\n{_running_summary}'
+        })
+    messages.extend(windowed)
 
     # Get mode params (can be overridden per-request)
     mode_params = get_effective_params()
@@ -890,9 +1008,11 @@ async def _process_chat_job(job_id: str, model: str, messages: list, temperature
             final_text = text_without_tools if 'text_without_tools' in dir() and text_without_tools else 'I reached the maximum number of tool iterations. Here is what I found so far.'
 
     # Store final response in conversation
+    # Token windowing handles context selection at query time;
+    # keep a safety cap to prevent unbounded memory growth
     if final_text:
         conversation.append({'role': 'assistant', 'content': final_text})
-        while len(conversation) > CFG['max_history']:
+        while len(conversation) > 200:
             conversation.pop(0)
 
     elapsed = time.monotonic() - start_time
