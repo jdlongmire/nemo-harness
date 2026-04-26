@@ -1,0 +1,13 @@
+Target: https://thinxai-workstation.tail99d888.ts.net:8091
+Server status: {'model': 'nvidia/nemotron-3-nano', 'api_base': 'http://100.125.50.95:1237', 'mode': 'default', 'mode_name': 'Default', 'circuit_breaker': 'closed', 'memory': {'size_bytes': 20480, 'size_mb': 0.02, 'entry_count': 2, 'status': 'OK'}, 'status': 'connected'}
+
+=== BATCH 6: Orchestration & Settings ===
+
+  [FAIL] 18.1: Multi-step research task (8.18s) - tools=[], artifacts=0
+  [PASS] 18.2: Code analysis task (38.36s) - tools=['grep_search']
+  [FAIL] 18.3: Clarification behavior (8.59s) - Response:
+  [PASS] 16.1: Config get/set (temperature) (0.02s) - original=0.7, set=0.1, got=0.1
+  [PASS] 16.4: Model list (0.07s) - Models: ['nvidia/nemotron-3-nano', 'nvidia/nemotron-3-nano-4b', 'google/gemma-4-26b-a4b']
+
+==================================================
+Results: 3/5 passed (60%) — Grade: C

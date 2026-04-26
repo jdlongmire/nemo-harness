@@ -1,0 +1,72 @@
+{
+  "batch": "tools_advanced",
+  "timestamp": "20260425_202030",
+  "total": 9,
+  "passed": 7,
+  "failed": 2,
+  "tests": [
+    {
+      "test_id": "7.1",
+      "name": "Web fetch",
+      "passed": false,
+      "notes": "tools=[]",
+      "duration": 0.04
+    },
+    {
+      "test_id": "7.2",
+      "name": "Web search",
+      "passed": false,
+      "notes": "tools=[], has_nvidia=False",
+      "duration": 120.6
+    },
+    {
+      "test_id": "8.1",
+      "name": "PPTX creation",
+      "passed": true,
+      "notes": "tools=['create_pptx', 'create_pptx', 'create_pptx'], artifacts=0",
+      "duration": 180.18
+    },
+    {
+      "test_id": "8.3",
+      "name": "DOCX creation",
+      "passed": true,
+      "notes": "tools=['create_docx'], artifacts=1",
+      "duration": 29.23
+    },
+    {
+      "test_id": "8.4",
+      "name": "XLSX creation",
+      "passed": true,
+      "notes": "tools=['create_xlsx'], artifacts=1",
+      "duration": 29.18
+    },
+    {
+      "test_id": "8.5",
+      "name": "SVG creation",
+      "passed": true,
+      "notes": "tools=['create_svg'], artifacts=1",
+      "duration": 41.39
+    },
+    {
+      "test_id": "11.1",
+      "name": "Create plan",
+      "passed": true,
+      "notes": "tools=['create_plan']",
+      "duration": 22.78
+    },
+    {
+      "test_id": "12.1",
+      "name": "RAG index",
+      "passed": true,
+      "notes": "tools=['index_text']",
+      "duration": 20.44
+    },
+    {
+      "test_id": "12.2",
+      "name": "RAG search",
+      "passed": true,
+      "notes": "tools=['semantic_search'], text=",
+      "duration": 38.25
+    }
+  ]
+}

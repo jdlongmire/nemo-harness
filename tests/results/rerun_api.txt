@@ -1,0 +1,18 @@
+Target: https://thinxai-workstation.tail99d888.ts.net:8091
+Server status: {'model': 'nvidia/nemotron-3-nano', 'api_base': 'http://100.125.50.95:1237', 'mode': 'default', 'mode_name': 'Default', 'circuit_breaker': 'closed', 'memory': {'size_bytes': 20480, 'size_mb': 0.02, 'entry_count': 2, 'status': 'OK'}, 'status': 'connected'}
+
+=== BATCH 1: API Endpoints ===
+
+  [PASS] 17.1: GET /api/status (0.19s) - Keys: ['model', 'api_base', 'mode', 'mode_name', 'circuit_breaker', 'memory', 'status']
+  [PASS] 17.2: GET /api/models (0.1s) - Type: list, content: ['nvidia/nemotron-3-nano', 'nvidia/nemotron-3-nano-4b', 'google/gemma-4-26b-a4b
+  [PASS] 17.3: GET /api/modes (0.02s) - Content: {'default': {'name': 'Default', 'model': 'nvidia/nemotron-3-nano', 'active': Tru
+  [PASS] 17.4: GET /api/config (0.02s) - Keys: ['api_base', 'model', 'max_history', 'mode', 'custom_system_prompt', 'temperature_override', '
+  [PASS] 17.5: GET /api/memory (0.03s) - Type: list, len: 2
+  [PASS] 17.6: GET /api/conversations (0.03s) - Type: list
+  [PASS] 17.7: POST /api/chat empty (0.01s) - Status: 400
+  [PASS] 17.8: GET /api/stream invalid (0.01s) - Status: 404
+
+==================================================
+Results: 8/8 passed (100%) — Grade: A
+Report: /media/jdlongmire/Macro-Drive-2TB/GitHub_Repos/nemo-harness/tests/results/api_20260425_191715.md
+Data:   /media/jdlongmire/Macro-Drive-2TB/GitHub_Repos/nemo-harness/tests/results/api_20260425_191715.json

@@ -1,0 +1,44 @@
+{
+  "batch": "orchestration",
+  "timestamp": "20260425_185925",
+  "total": 5,
+  "passed": 2,
+  "failed": 3,
+  "tests": [
+    {
+      "test_id": "18.1",
+      "name": "Multi-step research task",
+      "passed": true,
+      "notes": "tools=['read_file', 'list_dir', 'glob_search'], artifacts=1",
+      "duration": 53.17
+    },
+    {
+      "test_id": "18.2",
+      "name": "Code analysis task",
+      "passed": true,
+      "notes": "tools=['grep_search']",
+      "duration": 37.58
+    },
+    {
+      "test_id": "18.3",
+      "name": "Clarification behavior",
+      "passed": false,
+      "notes": "Response: ",
+      "duration": 8.3
+    },
+    {
+      "test_id": "16.1",
+      "name": "Config get/set (temperature)",
+      "passed": false,
+      "notes": "original=0.7, set=0.1, got=None",
+      "duration": 0.08
+    },
+    {
+      "test_id": "16.4",
+      "name": "Model list",
+      "passed": false,
+      "notes": "Unexpected format: <class 'dict'>",
+      "duration": 0.09
+    }
+  ]
+}

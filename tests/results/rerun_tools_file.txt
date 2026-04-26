@@ -1,0 +1,15 @@
+Target: https://thinxai-workstation.tail99d888.ts.net:8091
+Server status: {'model': 'nvidia/nemotron-3-nano', 'api_base': 'http://100.125.50.95:1237', 'mode': 'default', 'mode_name': 'Default', 'circuit_breaker': 'closed', 'memory': {'size_bytes': 20480, 'size_mb': 0.02, 'entry_count': 2, 'status': 'OK'}, 'status': 'connected'}
+
+=== BATCH 4: File & Search Tools ===
+
+  [FAIL] 4.1: Read file (server.py) (5.89s) - tools=[], port_found=False
+  [FAIL] 4.2: Write file (0.03s) - tools=[]
+  [FAIL] 4.4: List directory (0.02s) - tools=[], has_py=False
+  [FAIL] 5.1: Glob search (0.02s) - tools=[], has_py=False
+  [FAIL] 5.2: Grep search (0.19s) - tools=[], found=False
+
+==================================================
+Results: 0/5 passed (0%) — Grade: F
+Report: /media/jdlongmire/Macro-Drive-2TB/GitHub_Repos/nemo-harness/tests/results/tools_file_20260425_191948.md
+Data:   /media/jdlongmire/Macro-Drive-2TB/GitHub_Repos/nemo-harness/tests/results/tools_file_20260425_191948.json

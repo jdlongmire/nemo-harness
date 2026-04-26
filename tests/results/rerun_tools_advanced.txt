@@ -1,0 +1,19 @@
+Target: https://thinxai-workstation.tail99d888.ts.net:8091
+Server status: {'model': 'nvidia/nemotron-3-nano', 'api_base': 'http://100.125.50.95:1237', 'mode': 'default', 'mode_name': 'Default', 'circuit_breaker': 'closed', 'memory': {'size_bytes': 20480, 'size_mb': 0.02, 'entry_count': 2, 'status': 'OK'}, 'status': 'connected'}
+
+=== BATCH 5: Web, Documents, Planning, RAG ===
+
+  [FAIL] 7.1: Web fetch (0.07s) - tools=[]
+  [FAIL] 7.2: Web search (0.03s) - tools=[], has_nvidia=False
+  [FAIL] 8.1: PPTX creation (0.03s) - tools=[], artifacts=0
+  [FAIL] 8.3: DOCX creation (0.02s) - tools=[], artifacts=0
+  [FAIL] 8.4: XLSX creation (120.45s) - tools=[], artifacts=0
+  [PASS] 8.5: SVG creation (116.48s) - tools=['create_svg'], artifacts=0
+  [PASS] 11.1: Create plan (37.34s) - tools=['create_plan']
+  [PASS] 12.1: RAG index (36.99s) - tools=['index_text']
+  [PASS] 12.2: RAG search (23.62s) - tools=['semantic_search'], text=
+
+==================================================
+Results: 4/9 passed (44%) — Grade: D
+Report: /media/jdlongmire/Macro-Drive-2TB/GitHub_Repos/nemo-harness/tests/results/tools_advanced_20260425_192523.md
+Data:   /media/jdlongmire/Macro-Drive-2TB/GitHub_Repos/nemo-harness/tests/results/tools_advanced_20260425_192523.json

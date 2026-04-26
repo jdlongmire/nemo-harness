@@ -1,0 +1,65 @@
+{
+  "batch": "api",
+  "timestamp": "20260425_184452",
+  "total": 8,
+  "passed": 8,
+  "failed": 0,
+  "tests": [
+    {
+      "test_id": "17.1",
+      "name": "GET /api/status",
+      "passed": true,
+      "notes": "Keys: ['model', 'api_base', 'mode', 'mode_name', 'circuit_breaker', 'memory', 'status']",
+      "duration": 0.12
+    },
+    {
+      "test_id": "17.2",
+      "name": "GET /api/models",
+      "passed": true,
+      "notes": "Type: dict, content: {'data': [{'id': 'nvidia/nemotron-3-nano', 'object': 'model', 'owned_by': 'organ",
+      "duration": 0.08
+    },
+    {
+      "test_id": "17.3",
+      "name": "GET /api/modes",
+      "passed": true,
+      "notes": "Content: {'default': {'name': 'Default', 'model': 'nvidia/nemotron-3-nano', 'active': Tru",
+      "duration": 0.02
+    },
+    {
+      "test_id": "17.4",
+      "name": "GET /api/config",
+      "passed": true,
+      "notes": "Keys: ['api_base', 'model', 'max_history', 'mode', 'custom_system_prompt', 'system_prompt', 'mode_name', 'mode_temperature', 'mode_max_tokens']",
+      "duration": 0.02
+    },
+    {
+      "test_id": "17.5",
+      "name": "GET /api/memory",
+      "passed": true,
+      "notes": "Type: list, len: 1",
+      "duration": 0.13
+    },
+    {
+      "test_id": "17.6",
+      "name": "GET /api/conversations",
+      "passed": true,
+      "notes": "Type: list",
+      "duration": 0.27
+    },
+    {
+      "test_id": "17.7",
+      "name": "POST /api/chat empty",
+      "passed": true,
+      "notes": "Status: 400",
+      "duration": 0.02
+    },
+    {
+      "test_id": "17.8",
+      "name": "GET /api/stream invalid",
+      "passed": true,
+      "notes": "Status: 404",
+      "duration": 0.02
+    }
+  ]
+}

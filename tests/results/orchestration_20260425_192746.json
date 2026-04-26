@@ -1,0 +1,44 @@
+{
+  "batch": "orchestration",
+  "timestamp": "20260425_192746",
+  "total": 5,
+  "passed": 3,
+  "failed": 2,
+  "tests": [
+    {
+      "test_id": "18.1",
+      "name": "Multi-step research task",
+      "passed": false,
+      "notes": "tools=[], artifacts=0",
+      "duration": 8.18
+    },
+    {
+      "test_id": "18.2",
+      "name": "Code analysis task",
+      "passed": true,
+      "notes": "tools=['grep_search']",
+      "duration": 38.36
+    },
+    {
+      "test_id": "18.3",
+      "name": "Clarification behavior",
+      "passed": false,
+      "notes": "Response: ",
+      "duration": 8.59
+    },
+    {
+      "test_id": "16.1",
+      "name": "Config get/set (temperature)",
+      "passed": true,
+      "notes": "original=0.7, set=0.1, got=0.1",
+      "duration": 0.02
+    },
+    {
+      "test_id": "16.4",
+      "name": "Model list",
+      "passed": true,
+      "notes": "Models: ['nvidia/nemotron-3-nano', 'nvidia/nemotron-3-nano-4b', 'google/gemma-4-26b-a4b']",
+      "duration": 0.07
+    }
+  ]
+}

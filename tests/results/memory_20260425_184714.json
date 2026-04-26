@@ -1,0 +1,51 @@
+{
+  "batch": "memory",
+  "timestamp": "20260425_184714",
+  "total": 6,
+  "passed": 2,
+  "failed": 4,
+  "tests": [
+    {
+      "test_id": "2.1",
+      "name": "Multi-turn context",
+      "passed": false,
+      "notes": "Response: ",
+      "duration": 0.68
+    },
+    {
+      "test_id": "3.1",
+      "name": "Memory store (chat)",
+      "passed": false,
+      "notes": "Response: ",
+      "duration": 0.03
+    },
+    {
+      "test_id": "3.2",
+      "name": "Memory API list",
+      "passed": true,
+      "notes": "Memory entries: 1",
+      "duration": 0.1
+    },
+    {
+      "test_id": "3.3",
+      "name": "Memory API add/delete",
+      "passed": false,
+      "notes": "EXCEPTION: HTTP Error 400: Bad Request",
+      "duration": 0.02
+    },
+    {
+      "test_id": "3.4",
+      "name": "Memory search",
+      "passed": true,
+      "notes": "Search result: []",
+      "duration": 0.03
+    },
+    {
+      "test_id": "2.2",
+      "name": "Conversation save/list",
+      "passed": false,
+      "notes": "EXCEPTION: HTTP Error 400: Bad Request",
+      "duration": 0.02
+    }
+  ]
+}

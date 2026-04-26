@@ -1,0 +1,16 @@
+Target: https://thinxai-workstation.tail99d888.ts.net:8091
+Server status: {'model': 'nvidia/nemotron-3-nano', 'api_base': 'http://100.125.50.95:1237', 'mode': 'default', 'mode_name': 'Default', 'circuit_breaker': 'closed', 'memory': {'size_bytes': 20480, 'size_mb': 0.02, 'entry_count': 2, 'status': 'OK'}, 'status': 'connected'}
+
+=== BATCH 3: Memory & Conversation ===
+
+  [FAIL] 2.1: Multi-turn context (0.11s) - Response:
+  [FAIL] 3.1: Memory store (chat) (0.03s) - Response:
+  [PASS] 3.2: Memory API list (0.09s) - Memory entries: 2
+  [PASS] 3.3: Memory API add/delete (0.3s) - found=True, deleted=True, id=3
+  [PASS] 3.4: Memory search (0.05s) - Search result: []
+  [PASS] 2.2: Conversation save/list (0.04s) - saved={'status': 'saved', 'id': '20260426_001949_118203'}, list_type=list
+
+==================================================
+Results: 4/6 passed (67%) — Grade: C
+Report: /media/jdlongmire/Macro-Drive-2TB/GitHub_Repos/nemo-harness/tests/results/memory_20260425_191949.md
+Data:   /media/jdlongmire/Macro-Drive-2TB/GitHub_Repos/nemo-harness/tests/results/memory_20260425_191949.json
