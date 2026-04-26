@@ -41,24 +41,45 @@ class ToolRegistry:
     def list_tools(self) -> list[str]:
         return list(self._tools.keys())
 
-    def prompt_block(self) -> str:
-        """Generate the tool description block for injection into the system prompt."""
-        lines = ['You have access to the following tools. To use a tool, output a tool call block:']
-        lines.append('')
-        lines.append('<tool_call>')
-        lines.append('{"name": "tool_name", "args": {"param1": "value1"}}')
-        lines.append('</tool_call>')
-        lines.append('')
-        lines.append('You may call multiple tools in sequence. After each tool call, you will receive')
-        lines.append('the result in a <tool_result> block. Use the result to inform your next response.')
-        lines.append('When you have enough information, respond directly without a tool call.')
-        lines.append('')
-        lines.append('Available tools:')
-        lines.append('')
+    def openai_tools(self) -> list[dict]:
+        """Generate OpenAI-style tool definitions for the native tools API."""
+        tools = []
         for tool in self._tools.values():
-            lines.append(tool.schema_for_prompt())
-            lines.append('')
-        return '\n'.join(lines)
+            properties = {}
+            for pname, pdef in tool.parameters.items():
+                properties[pname] = {
+                    'type': pdef['type'],
+                    'description': pdef['description'],
+                }
+            tools.append({
+                'type': 'function',
+                'function': {
+                    'name': tool.name,
+                    'description': tool.description,
+                    'parameters': {
+                        'type': 'object',
+                        'properties': properties,
+                        'required': tool.required,
+                    },
+                },
+            })
+        return tools
+
+    def prompt_block(self) -> str:
+        """Generate a compact tool-use reminder for the system prompt.
+
+        The actual tool schemas are now sent via the native OpenAI tools API,
+        so this block only contains behavioral guidance.
+        """
+        return (
+            '# TOOL USE\n'
+            'You have tools available via function calling. Use them.\n'
+            'When the user asks you to read a file, write a file, list a directory, '
+            'run a command, search code, search the web, fetch a URL, create a document, '
+            'or make a plan: call the appropriate tool. Do not describe what you would do.\n'
+            'After a tool returns a result, use it to formulate your response to the user.\n'
+            'If a tool fails, tell the user what happened and try an alternative.\n'
+        )
 
     async def execute(self, name: str, args: dict[str, Any]) -> dict:
         """Execute a tool by name with given args. Returns result dict."""
@@ -73,7 +94,8 @@ class ToolRegistry:
 
         try:
             result = await tool.handler(**args)
-            return {**result, 'success': True}
+            has_error = isinstance(result, dict) and 'error' in result
+            return {**result, 'success': not has_error}
         except PermissionError as e:
             return {'error': f'Permission denied: {e}', 'success': False}
         except FileNotFoundError as e:
