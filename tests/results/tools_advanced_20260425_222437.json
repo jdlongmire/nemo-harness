@@ -1,0 +1,72 @@
+{
+  "batch": "tools_advanced",
+  "timestamp": "20260425_222437",
+  "total": 9,
+  "passed": 9,
+  "failed": 0,
+  "tests": [
+    {
+      "test_id": "7.1",
+      "name": "Web fetch",
+      "passed": true,
+      "notes": "tools=['web_fetch']",
+      "duration": 26.93
+    },
+    {
+      "test_id": "7.2",
+      "name": "Web search",
+      "passed": true,
+      "notes": "tools=['web_search'], has_nvidia=True",
+      "duration": 26.93
+    },
+    {
+      "test_id": "8.1",
+      "name": "PPTX creation",
+      "passed": true,
+      "notes": "tools=['create_pptx'], artifacts=0",
+      "duration": 30.86
+    },
+    {
+      "test_id": "8.3",
+      "name": "DOCX creation",
+      "passed": true,
+      "notes": "tools=['create_docx'], artifacts=1",
+      "duration": 26.48
+    },
+    {
+      "test_id": "8.4",
+      "name": "XLSX creation",
+      "passed": true,
+      "notes": "tools=['create_xlsx'], artifacts=1",
+      "duration": 29.14
+    },
+    {
+      "test_id": "8.5",
+      "name": "SVG creation",
+      "passed": true,
+      "notes": "tools=['create_svg'], artifacts=0",
+      "duration": 31.28
+    },
+    {
+      "test_id": "11.1",
+      "name": "Create plan",
+      "passed": true,
+      "notes": "tools=['create_plan']",
+      "duration": 24.69
+    },
+    {
+      "test_id": "12.1",
+      "name": "RAG index",
+      "passed": true,
+      "notes": "tools=['index_text']",
+      "duration": 21.42
+    },
+    {
+      "test_id": "12.2",
+      "name": "RAG search",
+      "passed": true,
+      "notes": "tools=['semantic_search'], text=\n\n\nI found several indexed entries that mention the **harness engineering patter",
+      "duration": 27.14
+    }
+  ]
+}

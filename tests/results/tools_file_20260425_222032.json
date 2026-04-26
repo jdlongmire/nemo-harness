@@ -1,0 +1,44 @@
+{
+  "batch": "tools_file",
+  "timestamp": "20260425_222032",
+  "total": 5,
+  "passed": 5,
+  "failed": 0,
+  "tests": [
+    {
+      "test_id": "4.1",
+      "name": "Read file (server.py)",
+      "passed": true,
+      "notes": "tools=['read_file', 'grep_search', 'grep_search'], port_found=True",
+      "duration": 60.87
+    },
+    {
+      "test_id": "4.2",
+      "name": "Write file",
+      "passed": true,
+      "notes": "tools=['write_file']",
+      "duration": 18.83
+    },
+    {
+      "test_id": "4.4",
+      "name": "List directory",
+      "passed": true,
+      "notes": "tools=['list_dir'], has_py=True",
+      "duration": 24.28
+    },
+    {
+      "test_id": "5.1",
+      "name": "Glob search",
+      "passed": true,
+      "notes": "tools=['glob_search'], has_py=True",
+      "duration": 28.25
+    },
+    {
+      "test_id": "5.2",
+      "name": "Grep search",
+      "passed": true,
+      "notes": "tools=['grep_search'], found=True",
+      "duration": 43.21
+    }
+  ]
+}

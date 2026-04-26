@@ -1,0 +1,44 @@
+{
+  "batch": "orchestration",
+  "timestamp": "20260425_223012",
+  "total": 5,
+  "passed": 5,
+  "failed": 0,
+  "tests": [
+    {
+      "test_id": "18.1",
+      "name": "Multi-step research task",
+      "passed": true,
+      "notes": "tools=['read_file', 'list_dir', 'glob_search', 'glob_search', 'read_file', 'glob_search', 'glob_search', 'run_command', 'run_command', 'run_command'], artifacts=1",
+      "duration": 131.93
+    },
+    {
+      "test_id": "18.2",
+      "name": "Code analysis task",
+      "passed": true,
+      "notes": "tools=['grep_search', 'list_dir', 'grep_search', 'list_dir', 'grep_search', 'glob_search', 'grep_search', 'grep_search']",
+      "duration": 189.0
+    },
+    {
+      "test_id": "18.3",
+      "name": "Clarification behavior",
+      "passed": true,
+      "notes": "Response: \nBefore I proceed, could you clarify a few details?\n\n1. Which component or service are you referring",
+      "duration": 14.09
+    },
+    {
+      "test_id": "16.1",
+      "name": "Config get/set (temperature)",
+      "passed": true,
+      "notes": "original=0.7, set=0.1, got=0.1",
+      "duration": 0.06
+    },
+    {
+      "test_id": "16.4",
+      "name": "Model list",
+      "passed": true,
+      "notes": "Models: ['nvidia/nemotron-3-nano', 'nvidia/nemotron-3-nano-4b', 'google/gemma-4-26b-a4b']",
+      "duration": 0.14
+    }
+  ]
+}

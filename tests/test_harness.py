@@ -651,10 +651,90 @@ def main():
         sys.exit(1)
 
     if args.batch == "all":
+        all_results = []
         for name, fn in BATCHES.items():
             fn()
+            all_results.extend(results)
             write_report(name)
             results.clear()
+
+        # Write consolidated summary
+        report_dir = os.path.join(os.path.dirname(__file__), "results")
+        timestamp = time.strftime("%Y%m%d_%H%M%S")
+        total = len(all_results)
+        passed = sum(1 for r in all_results if r.passed)
+        pct = (passed / total * 100) if total else 0
+        grade = "A" if pct >= 90 else "B" if pct >= 75 else "C" if pct >= 60 else "D" if pct >= 40 else "F"
+
+        # Compute per-batch scores
+        batch_order = list(BATCHES.keys())
+        batch_labels = {
+            "api": "API Endpoints",
+            "identity": "Identity & Modes",
+            "memory": "Memory & Conversation",
+            "tools_file": "File & Search Tools",
+            "tools_advanced": "Web, Docs, Planning, RAG",
+            "orchestration": "Orchestration & Settings",
+        }
+        batch_tests = {k: [] for k in batch_order}
+        # Re-bucket by test_id prefix
+        prefix_map = {"17": "api", "1": "identity", "6": "identity",
+                       "2": "memory", "3": "memory",
+                       "4": "tools_file", "5": "tools_file",
+                       "7": "tools_advanced", "8": "tools_advanced",
+                       "11": "tools_advanced", "12": "tools_advanced",
+                       "18": "orchestration", "16": "orchestration"}
+        for r in all_results:
+            cat = r.test_id.split(".")[0]
+            batch_key = prefix_map.get(cat, "orchestration")
+            batch_tests[batch_key].append(r)
+
+        md = ["# Nemo Test Results: CONSOLIDATED (v4)", ""]
+        md.append(f"**Date:** {timestamp}")
+        md.append(f"**Overall:** {passed}/{total} ({pct:.0f}%) — Grade: **{grade}**")
+        md.append(f"**Mode:** Sequential (single process, no contention)")
+        md.append("")
+        md.append("## Per-Batch Summary")
+        md.append("")
+        md.append("| Batch | Passed | Score | Grade |")
+        md.append("|-------|--------|-------|-------|")
+        for bk in batch_order:
+            bt = batch_tests[bk]
+            bp = sum(1 for r in bt if r.passed)
+            bpct = (bp / len(bt) * 100) if bt else 0
+            bg = "A" if bpct >= 90 else "B" if bpct >= 75 else "C" if bpct >= 60 else "D" if bpct >= 40 else "F"
+            md.append(f"| {batch_labels.get(bk, bk)} | {bp}/{len(bt)} | {bpct:.0f}% | {bg} |")
+
+        md.append("")
+        md.append("## All Tests")
+        md.append("")
+        md.append("| Test | Name | Result | Duration | Notes |")
+        md.append("|------|------|--------|----------|-------|")
+        for r in all_results:
+            status = "PASS" if r.passed else "FAIL"
+            notes = r.notes[:60].replace("|", "\\|")
+            md.append(f"| {r.test_id} | {r.name} | {status} | {r.duration}s | {notes} |")
+
+        summary_path = f"{report_dir}/SUMMARY_v4_{timestamp}.md"
+        with open(summary_path, "w") as f:
+            f.write("\n".join(md))
+
+        # JSON
+        data = {
+            "batch": "all",
+            "timestamp": timestamp,
+            "total": total,
+            "passed": passed,
+            "pct": round(pct, 1),
+            "grade": grade,
+            "tests": [r.to_dict() for r in all_results],
+        }
+        with open(f"{report_dir}/SUMMARY_v4_{timestamp}.json", "w") as f:
+            json.dump(data, f, indent=2)
+
+        print(f"\n{'='*50}")
+        print(f"CONSOLIDATED: {passed}/{total} passed ({pct:.0f}%) — Grade: {grade}")
+        print(f"Summary: {summary_path}")
     else:
         BATCHES[args.batch]()
         write_report(args.batch)

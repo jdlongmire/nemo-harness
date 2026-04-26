@@ -1,0 +1,276 @@
+{
+  "batch": "all",
+  "timestamp": "20260425_223012",
+  "total": 38,
+  "passed": 38,
+  "pct": 100.0,
+  "grade": "A",
+  "tests": [
+    {
+      "test_id": "17.1",
+      "name": "GET /api/status",
+      "passed": true,
+      "notes": "Keys: ['model', 'api_base', 'mode', 'mode_name', 'circuit_breaker', 'memory', 'status']",
+      "duration": 0.27
+    },
+    {
+      "test_id": "17.2",
+      "name": "GET /api/models",
+      "passed": true,
+      "notes": "Type: list, content: ['nvidia/nemotron-3-nano', 'nvidia/nemotron-3-nano-4b', 'google/gemma-4-26b-a4b'",
+      "duration": 0.17
+    },
+    {
+      "test_id": "17.3",
+      "name": "GET /api/modes",
+      "passed": true,
+      "notes": "Content: {'default': {'name': 'Default', 'model': 'nvidia/nemotron-3-nano', 'active': Tru",
+      "duration": 0.02
+    },
+    {
+      "test_id": "17.4",
+      "name": "GET /api/config",
+      "passed": true,
+      "notes": "Keys: ['api_base', 'model', 'max_history', 'mode', 'custom_system_prompt', 'temperature_override', 'temperature', 'system_prompt', 'mode_name', 'mode_temperature', 'mode_max_tokens']",
+      "duration": 0.02
+    },
+    {
+      "test_id": "17.5",
+      "name": "GET /api/memory",
+      "passed": true,
+      "notes": "Type: list, len: 2",
+      "duration": 0.1
+    },
+    {
+      "test_id": "17.6",
+      "name": "GET /api/conversations",
+      "passed": true,
+      "notes": "Type: list",
+      "duration": 0.02
+    },
+    {
+      "test_id": "17.7",
+      "name": "POST /api/chat empty",
+      "passed": true,
+      "notes": "Status: 400",
+      "duration": 0.01
+    },
+    {
+      "test_id": "17.8",
+      "name": "GET /api/stream invalid",
+      "passed": true,
+      "notes": "Status: 404",
+      "duration": 0.01
+    },
+    {
+      "test_id": "1.1",
+      "name": "Identity check",
+      "passed": true,
+      "notes": "nemo=True, thinx=True, no_chatgpt=True",
+      "duration": 11.8
+    },
+    {
+      "test_id": "1.2",
+      "name": "Mode switching",
+      "passed": true,
+      "notes": "technical: \nTechnical mode enabled.... creative: \nMode set to **creative**. I'm ready to craft vivi...",
+      "duration": 19.61
+    },
+    {
+      "test_id": "1.3",
+      "name": "Mode listing",
+      "passed": true,
+      "notes": "Response: \nThe available operating modes are:\n\n- **default**  \n- **technical**  \n- **creative**  \n- **research",
+      "duration": 11.02
+    },
+    {
+      "test_id": "6.1",
+      "name": "Shell command (uname)",
+      "passed": true,
+      "notes": "tools=1, linux=True",
+      "duration": 18.61
+    },
+    {
+      "test_id": "6.2",
+      "name": "Sandbox enforcement",
+      "passed": true,
+      "notes": "Response: \n\n\nI\u2019m sorry, but that command is blocked for safety reasons. If there\u2019s another task you\u2019d like hel",
+      "duration": 29.59
+    },
+    {
+      "test_id": "2.1",
+      "name": "Multi-turn context",
+      "passed": true,
+      "notes": "Response: \nYour name is **TestUser42**.",
+      "duration": 34.42
+    },
+    {
+      "test_id": "3.1",
+      "name": "Memory store (chat)",
+      "passed": true,
+      "notes": "Response: \n\n\n\n\nGot it\u2014your favorite language is\u202fRust, and I\u2019ve saved that in your persistent memory. Let me kn",
+      "duration": 37.71
+    },
+    {
+      "test_id": "3.2",
+      "name": "Memory API list",
+      "passed": true,
+      "notes": "Memory entries: 2",
+      "duration": 0.11
+    },
+    {
+      "test_id": "3.3",
+      "name": "Memory API add/delete",
+      "passed": true,
+      "notes": "found=True, deleted=True, id=5",
+      "duration": 0.2
+    },
+    {
+      "test_id": "3.4",
+      "name": "Memory search",
+      "passed": true,
+      "notes": "Search result: []",
+      "duration": 0.08
+    },
+    {
+      "test_id": "2.2",
+      "name": "Conversation save/list",
+      "passed": true,
+      "notes": "saved={'status': 'saved', 'id': '20260426_031736_642863'}, list_type=list",
+      "duration": 0.06
+    },
+    {
+      "test_id": "4.1",
+      "name": "Read file (server.py)",
+      "passed": true,
+      "notes": "tools=['read_file', 'grep_search', 'grep_search'], port_found=True",
+      "duration": 60.87
+    },
+    {
+      "test_id": "4.2",
+      "name": "Write file",
+      "passed": true,
+      "notes": "tools=['write_file']",
+      "duration": 18.83
+    },
+    {
+      "test_id": "4.4",
+      "name": "List directory",
+      "passed": true,
+      "notes": "tools=['list_dir'], has_py=True",
+      "duration": 24.28
+    },
+    {
+      "test_id": "5.1",
+      "name": "Glob search",
+      "passed": true,
+      "notes": "tools=['glob_search'], has_py=True",
+      "duration": 28.25
+    },
+    {
+      "test_id": "5.2",
+      "name": "Grep search",
+      "passed": true,
+      "notes": "tools=['grep_search'], found=True",
+      "duration": 43.21
+    },
+    {
+      "test_id": "7.1",
+      "name": "Web fetch",
+      "passed": true,
+      "notes": "tools=['web_fetch']",
+      "duration": 26.93
+    },
+    {
+      "test_id": "7.2",
+      "name": "Web search",
+      "passed": true,
+      "notes": "tools=['web_search'], has_nvidia=True",
+      "duration": 26.93
+    },
+    {
+      "test_id": "8.1",
+      "name": "PPTX creation",
+      "passed": true,
+      "notes": "tools=['create_pptx'], artifacts=0",
+      "duration": 30.86
+    },
+    {
+      "test_id": "8.3",
+      "name": "DOCX creation",
+      "passed": true,
+      "notes": "tools=['create_docx'], artifacts=1",
+      "duration": 26.48
+    },
+    {
+      "test_id": "8.4",
+      "name": "XLSX creation",
+      "passed": true,
+      "notes": "tools=['create_xlsx'], artifacts=1",
+      "duration": 29.14
+    },
+    {
+      "test_id": "8.5",
+      "name": "SVG creation",
+      "passed": true,
+      "notes": "tools=['create_svg'], artifacts=0",
+      "duration": 31.28
+    },
+    {
+      "test_id": "11.1",
+      "name": "Create plan",
+      "passed": true,
+      "notes": "tools=['create_plan']",
+      "duration": 24.69
+    },
+    {
+      "test_id": "12.1",
+      "name": "RAG index",
+      "passed": true,
+      "notes": "tools=['index_text']",
+      "duration": 21.42
+    },
+    {
+      "test_id": "12.2",
+      "name": "RAG search",
+      "passed": true,
+      "notes": "tools=['semantic_search'], text=\n\n\nI found several indexed entries that mention the **harness engineering patter",
+      "duration": 27.14
+    },
+    {
+      "test_id": "18.1",
+      "name": "Multi-step research task",
+      "passed": true,
+      "notes": "tools=['read_file', 'list_dir', 'glob_search', 'glob_search', 'read_file', 'glob_search', 'glob_search', 'run_command', 'run_command', 'run_command'], artifacts=1",
+      "duration": 131.93
+    },
+    {
+      "test_id": "18.2",
+      "name": "Code analysis task",
+      "passed": true,
+      "notes": "tools=['grep_search', 'list_dir', 'grep_search', 'list_dir', 'grep_search', 'glob_search', 'grep_search', 'grep_search']",
+      "duration": 189.0
+    },
+    {
+      "test_id": "18.3",
+      "name": "Clarification behavior",
+      "passed": true,
+      "notes": "Response: \nBefore I proceed, could you clarify a few details?\n\n1. Which component or service are you referring",
+      "duration": 14.09
+    },
+    {
+      "test_id": "16.1",
+      "name": "Config get/set (temperature)",
+      "passed": true,
+      "notes": "original=0.7, set=0.1, got=0.1",
+      "duration": 0.06
+    },
+    {
+      "test_id": "16.4",
+      "name": "Model list",
+      "passed": true,
+      "notes": "Models: ['nvidia/nemotron-3-nano', 'nvidia/nemotron-3-nano-4b', 'google/gemma-4-26b-a4b']",
+      "duration": 0.14
+    }
+  ]
+}
