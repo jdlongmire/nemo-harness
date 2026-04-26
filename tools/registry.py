@@ -41,10 +41,15 @@ class ToolRegistry:
     def list_tools(self) -> list[str]:
         return list(self._tools.keys())
 
-    def openai_tools(self) -> list[dict]:
-        """Generate OpenAI-style tool definitions for the native tools API."""
+    def openai_tools(self, only: set[str] | None = None) -> list[dict]:
+        """Generate OpenAI-style tool definitions for the native tools API.
+
+        If `only` is provided, restrict output to those tool names.
+        """
         tools = []
         for tool in self._tools.values():
+            if only is not None and tool.name not in only:
+                continue
             properties = {}
             for pname, pdef in tool.parameters.items():
                 properties[pname] = {

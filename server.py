@@ -42,6 +42,7 @@ import memory_store
 from tools.sandbox import Sandbox
 from tools.registry import TOOL_REGISTRY
 from tools.parser import ToolCallParser
+from tools.context_sensor import classify_recent, get_relevant_tools, get_relevant_guides, ContextState
 import tools.file_tools
 import tools.shell_tools
 import tools.search_tools
@@ -336,80 +337,95 @@ _BEHAVIORAL_CORE = (
     'Do not just summarize what you found: cite where you found it so the user can verify.\n'
 )
 
+# Guide fragments indexed by key (for dynamic selection)
+GUIDE_BLOCKS = {
+    'behavioral_core': _BEHAVIORAL_CORE,
+    'design': _DESIGN_BEHAVIOR,
+    'memory': _MEMORY_BEHAVIOR,
+    'clarification': _CLARIFICATION_BEHAVIOR,
+    'planning': _PLANNING_BEHAVIOR,
+}
+
+_ALL_GUIDE_KEYS = list(GUIDE_BLOCKS.keys())
+
+# Mode identity headers (separated from guide blocks for dynamic composition)
+_MODE_HEADERS = {
+    'default': (
+        '# IDENTITY\n'
+        'You are **Nemo**, the ThinxAI assistant. You run on NVIDIA Nemotron.\n'
+        'You are NOT ChatGPT, not a generic AI, not an unnamed assistant.\n'
+        'Your name is Nemo. Always identify as Nemo when asked.\n'
+        'When asked who you are, say: "I\'m Nemo, the ThinxAI assistant. I run on NVIDIA Nemotron '
+        'and I\'m built for research, technical work, and creative tasks. I can read and write files, '
+        'run shell commands, search codebases, fetch web pages, create documents, and remember things '
+        'across conversations."\n'
+    ),
+    'technical': 'You are Nemo, the ThinxAI technical assistant running on NVIDIA Nemotron.\n',
+    'creative': 'You are Nemo, the ThinxAI creative assistant running on NVIDIA Nemotron.\n',
+    'research': 'You are Nemo, the ThinxAI research assistant running on NVIDIA Nemotron.\n',
+}
+
+_MODE_FOOTERS = {
+    'default': 'Mode: Default. Balanced tone. Provide clear, accurate, concise responses.',
+    'technical': (
+        'Mode: Technical. Prioritize accuracy over brevity. Include code examples when relevant. '
+        'Use structured formatting (headers, lists, code blocks). '
+        'Distinguish established facts from inferences.'
+    ),
+    'creative': (
+        'Mode: Creative. Write with vivid language, varied sentence structure, and narrative flow. '
+        'Take creative risks. Explore ideas from unexpected angles.'
+    ),
+    'research': (
+        'Mode: Research. Analyze claims carefully. Distinguish evidence from inference. '
+        'Cite reasoning steps explicitly. Flag assumptions. '
+        'When uncertain, state so clearly rather than speculating.'
+    ),
+}
+
+
+def _build_mode_prompt(mode_key: str, guide_keys: list[str] | None = None) -> str:
+    """Compose a system prompt from mode header + selected guide blocks + footer."""
+    header = _MODE_HEADERS.get(mode_key, _MODE_HEADERS['default'])
+    footer = _MODE_FOOTERS.get(mode_key, _MODE_FOOTERS['default'])
+    keys = guide_keys if guide_keys is not None else _ALL_GUIDE_KEYS
+
+    parts = [header, '\n', _CAPABILITIES, '\n']
+    for key in keys:
+        block = GUIDE_BLOCKS.get(key)
+        if block:
+            parts.append(block)
+            parts.append('\n')
+    parts.append(footer)
+    return ''.join(parts)
+
+
 MODES = {
     'default': {
         'name': 'Default',
         'model': DEFAULT_MODEL,
-        'system_prompt': (
-            '# IDENTITY\n'
-            'You are **Nemo**, the ThinxAI assistant. You run on NVIDIA Nemotron.\n'
-            'You are NOT ChatGPT, not a generic AI, not an unnamed assistant.\n'
-            'Your name is Nemo. Always identify as Nemo when asked.\n'
-            'When asked who you are, say: "I\'m Nemo, the ThinxAI assistant. I run on NVIDIA Nemotron '
-            'and I\'m built for research, technical work, and creative tasks. I can read and write files, '
-            'run shell commands, search codebases, fetch web pages, create documents, and remember things '
-            'across conversations."\n\n'
-            + _CAPABILITIES + '\n'
-            + _BEHAVIORAL_CORE + '\n'
-            + _DESIGN_BEHAVIOR + '\n'
-            + _MEMORY_BEHAVIOR + '\n'
-            + _CLARIFICATION_BEHAVIOR + '\n'
-            + _PLANNING_BEHAVIOR + '\n'
-            'Mode: Default. Balanced tone. Provide clear, accurate, concise responses.'
-        ),
+        'system_prompt': _build_mode_prompt('default'),
         'temperature': 0.7,
         'max_tokens': 2048,
     },
     'technical': {
         'name': 'Technical',
         'model': DEFAULT_MODEL,
-        'system_prompt': (
-            'You are Nemo, the ThinxAI technical assistant running on NVIDIA Nemotron.\n\n'
-            + _CAPABILITIES + '\n'
-            + _BEHAVIORAL_CORE + '\n'
-            + _DESIGN_BEHAVIOR + '\n'
-            + _MEMORY_BEHAVIOR + '\n'
-            + _CLARIFICATION_BEHAVIOR + '\n'
-            + _PLANNING_BEHAVIOR + '\n'
-            'Mode: Technical. Prioritize accuracy over brevity. Include code examples when relevant. '
-            'Use structured formatting (headers, lists, code blocks). '
-            'Distinguish established facts from inferences.'
-        ),
+        'system_prompt': _build_mode_prompt('technical'),
         'temperature': 0.3,
         'max_tokens': 4096,
     },
     'creative': {
         'name': 'Creative',
         'model': DEFAULT_MODEL,
-        'system_prompt': (
-            'You are Nemo, the ThinxAI creative assistant running on NVIDIA Nemotron.\n\n'
-            + _CAPABILITIES + '\n'
-            + _BEHAVIORAL_CORE + '\n'
-            + _DESIGN_BEHAVIOR + '\n'
-            + _MEMORY_BEHAVIOR + '\n'
-            + _CLARIFICATION_BEHAVIOR + '\n'
-            + _PLANNING_BEHAVIOR + '\n'
-            'Mode: Creative. Write with vivid language, varied sentence structure, and narrative flow. '
-            'Take creative risks. Explore ideas from unexpected angles.'
-        ),
+        'system_prompt': _build_mode_prompt('creative'),
         'temperature': 1.0,
         'max_tokens': 4096,
     },
     'research': {
         'name': 'Research',
         'model': DEFAULT_MODEL,
-        'system_prompt': (
-            'You are Nemo, the ThinxAI research assistant running on NVIDIA Nemotron.\n\n'
-            + _CAPABILITIES + '\n'
-            + _BEHAVIORAL_CORE + '\n'
-            + _DESIGN_BEHAVIOR + '\n'
-            + _MEMORY_BEHAVIOR + '\n'
-            + _CLARIFICATION_BEHAVIOR + '\n'
-            + _PLANNING_BEHAVIOR + '\n'
-            'Mode: Research. Analyze claims carefully. Distinguish evidence from inference. '
-            'Cite reasoning steps explicitly. Flag assumptions. '
-            'When uncertain, state so clearly rather than speculating.'
-        ),
+        'system_prompt': _build_mode_prompt('research'),
         'temperature': 0.4,
         'max_tokens': 4096,
     },
@@ -459,6 +475,10 @@ class CircuitBreaker:
 
 
 inference_breaker = CircuitBreaker(threshold=5, cooldown=60.0)
+
+# --- Dynamic guide refresh ---
+ENABLE_DYNAMIC_GUIDES = os.getenv('NEMO_ENABLE_DYNAMIC_GUIDES', 'true').lower() in ('true', '1', 'yes')
+_context_state = ContextState()
 
 # --- In-memory conversation history ---
 conversation: list[dict] = []
@@ -520,10 +540,17 @@ def _strip_html_tags(html: str) -> str:
     return html.strip()
 
 
-def get_effective_system_prompt() -> str:
-    """Build system prompt from mode + memory context + tool schemas."""
+def get_effective_system_prompt(guide_keys: list[str] | None = None) -> str:
+    """Build system prompt from mode + selected guides + memory context.
+
+    If guide_keys is provided and dynamic guides are enabled, only those
+    guide blocks are included.  Otherwise all guides are included (current behavior).
+    """
     if CFG['custom_system_prompt']:
         base_prompt = CFG['custom_system_prompt']
+    elif ENABLE_DYNAMIC_GUIDES and guide_keys is not None:
+        mode_key = CFG['mode'] if CFG['mode'] in _MODE_HEADERS else 'default'
+        base_prompt = _build_mode_prompt(mode_key, guide_keys)
     else:
         mode = MODES.get(CFG['mode'], MODES['default'])
         base_prompt = mode['system_prompt']
@@ -651,9 +678,10 @@ async def handle_history(request: web.Request) -> web.Response:
 
 
 async def handle_clear(request: web.Request) -> web.Response:
-    global _running_summary
+    global _running_summary, _context_state
     conversation.clear()
     _running_summary = ''
+    _context_state = ContextState()
     return web.json_response({'status': 'cleared'})
 
 
@@ -696,9 +724,22 @@ async def handle_chat(request: web.Request) -> web.Response:
     else:
         conversation.append({'role': 'user', 'content': user_message})
 
+    # Dynamic guide refresh: classify intent from recent conversation
+    if ENABLE_DYNAMIC_GUIDES:
+        detected_intent, _scores = classify_recent(conversation, window=3)
+        effective_intent = _context_state.update(detected_intent)
+        guide_keys = get_relevant_guides(effective_intent)
+        tool_subset = get_relevant_tools(effective_intent)
+        clog.info('Intent: detected=%s effective=%s guides=%s tools=%s',
+                  detected_intent, effective_intent,
+                  guide_keys, 'all' if tool_subset is None else len(tool_subset))
+    else:
+        guide_keys = None
+        tool_subset = None
+
     # Build messages with token-aware windowing
     global _running_summary
-    system_msg = {'role': 'system', 'content': get_effective_system_prompt()}
+    system_msg = {'role': 'system', 'content': get_effective_system_prompt(guide_keys)}
     masked = mask_observations(list(conversation))
     windowed, evicted = window_by_tokens(masked, HISTORY_TOKEN_BUDGET)
 
@@ -747,7 +788,8 @@ async def handle_chat(request: web.Request) -> web.Response:
             del jobs[old_id]
 
     # Launch processing task
-    asyncio.create_task(_process_chat_job(job_id, model, messages, temperature, max_tokens, cid))
+    asyncio.create_task(_process_chat_job(job_id, model, messages, temperature, max_tokens, cid,
+                                          tool_subset=tool_subset))
 
     clog.info('Job created: %s (mode=%s, model=%s)', job_id, CFG['mode'], model)
     return web.json_response({'job_id': job_id})
@@ -878,7 +920,8 @@ async def _call_inference(session: aiohttp.ClientSession, model: str, messages: 
     return InferenceResult(text=''.join(full_response), tool_calls=assembled_calls)
 
 
-async def _process_chat_job(job_id: str, model: str, messages: list, temperature: float, max_tokens: int, cid: str):
+async def _process_chat_job(job_id: str, model: str, messages: list, temperature: float, max_tokens: int, cid: str,
+                           tool_subset: set[str] | None = None):
     """Process inference with tool-calling loop. Max MAX_TOOL_ITERATIONS iterations."""
     job = jobs[job_id]
     clog = CorrelatedLogger(logger, cid, model=model)
@@ -887,8 +930,8 @@ async def _process_chat_job(job_id: str, model: str, messages: list, temperature
 
     _emit_event(job, 'status', {'message': f'Sending to {model}...'})
 
-    # Build native OpenAI tools list
-    openai_tools = TOOL_REGISTRY.openai_tools()
+    # Build native OpenAI tools list (filtered by intent when dynamic guides enabled)
+    openai_tools = TOOL_REGISTRY.openai_tools(only=tool_subset)
 
     final_text = ''
     iteration = 0
@@ -1089,6 +1132,8 @@ async def handle_config(request: web.Request) -> web.Response:
             'mode_name': mode['name'],
             'mode_temperature': mode['temperature'],
             'mode_max_tokens': mode['max_tokens'],
+            'dynamic_guides': ENABLE_DYNAMIC_GUIDES,
+            'current_intent': _context_state.current_intent,
         })
 
     body = await request.json()
