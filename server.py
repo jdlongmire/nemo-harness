@@ -26,7 +26,6 @@ import socket
 import ssl
 import time
 import uuid
-from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlparse
@@ -39,10 +38,18 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent / '.env')
 
 import memory_store
+from mind_config import (
+    DEFAULT_MODEL, MODES, MODE_HEADERS, GUIDE_BLOCKS, ALL_GUIDE_KEYS,
+    build_mode_prompt, HISTORY_TOKEN_BUDGET, SUMMARY_TOKEN_BUDGET,
+    VERBATIM_TOOL_RESULTS, INFERENCE_TIMEOUT, MAX_TOOL_ITERATIONS,
+)
 from tools.sandbox import Sandbox
 from tools.registry import TOOL_REGISTRY
 from tools.parser import ToolCallParser
-from tools.context_sensor import classify_recent, get_relevant_tools, get_relevant_guides, ContextState
+from tools.context_sensor import classify_recent, get_relevant_tools, get_relevant_guides, ContextState, check_coherence
+from inference_client import NemotronClient, InferenceResult, StreamEvent
+import channels
+import output_validator
 import tools.file_tools
 import tools.shell_tools
 import tools.search_tools
@@ -70,12 +77,7 @@ tools.rag_tools.register()
 tools.document_tools.register(_sandbox)
 tools.svg_tools.register(_sandbox)
 
-MAX_TOOL_ITERATIONS = 10
-
-# --- Context Window Management ---
-HISTORY_TOKEN_BUDGET = int(os.environ.get('NEMO_HISTORY_TOKEN_BUDGET', '3500'))
-SUMMARY_TOKEN_BUDGET = 400
-VERBATIM_TOOL_RESULTS = 5  # Keep last N tool results unmasked (self-hosted: no per-token cost)
+# Context window constants imported from mind_config
 
 
 def estimate_tokens(text: str) -> int:
@@ -159,29 +161,16 @@ async def _summarize_via_model(text: str, existing_summary: str = '') -> str | N
         prompt += f'\n\nPrior context:\n{existing_summary}'
     prompt += f'\n\nConversation:\n{text}'
 
-    payload = {
-        'model': CFG['model'],
-        'messages': [
+    return await _inference_client.completion(
+        model=CFG['model'],
+        messages=[
             {'role': 'system', 'content': 'You are a summarization assistant. Output only bullet points.'},
             {'role': 'user', 'content': prompt},
         ],
-        'stream': False,
-        'temperature': 0.3,
-        'max_tokens': SUMMARY_TOKEN_BUDGET,
-    }
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                f'{CFG["api_base"]}/v1/chat/completions',
-                json=payload,
-                timeout=aiohttp.ClientTimeout(total=15),
-            ) as resp:
-                if resp.status != 200:
-                    return None
-                data = await resp.json()
-                return data['choices'][0]['message']['content'].strip()
-    except Exception:
-        return None
+        temperature=0.3,
+        max_tokens=SUMMARY_TOKEN_BUDGET,
+        timeout=15.0,
+    )
 
 
 def _heuristic_summary(evicted: list[dict], existing_summary: str = '') -> str:
@@ -301,191 +290,9 @@ class TraceLogger:
         self.log('final', {'text': text[:2000], 'iterations': iterations, 'elapsed_s': round(elapsed, 2)})
 
 
-# --- Behavioral Mode System ---
-DEFAULT_MODEL = 'nvidia/nemotron-3-nano'
-
-_CAPABILITIES = (
-    'Your capabilities:\n'
-    '- /fetch <url> : fetch and read web pages\n'
-    '- /mode <name> or /modes : switch modes (default, technical, creative, research)\n'
-    '- /remember <text> : store info to persistent memory\n'
-    '- /recall <query> : search persistent memory\n'
-    '- /forget <id> : delete a memory entry\n'
-    '- Mode and model switching via UI dropdowns\n'
-    '- Conversation save/load/delete, response regeneration, thumbs up/down evaluation\n'
-    '- You have function-calling tools for file I/O, shell commands, web search/fetch, '
-    'code search, document creation (PPTX/DOCX/XLSX/SVG), planning, and RAG.\n'
-    '- When a task requires a tool, call it. Do not describe what you would do.\n'
-)
-
-_MEMORY_BEHAVIOR = (
-    'Persistent memory:\n'
-    '- Your persistent memory is stored in a database. The <memory> block in your context is auto-generated from it.\n'
-    '- To store new memories, use [ACTION:remember|type|name|description|content] tags in your response.\n'
-    '  Types: user (about the user), feedback (corrections/preferences), project (active work), reference (infra/accounts).\n'
-    '- Use /recall <query> to search your memory and /forget <id> to delete entries.\n'
-    '- Be selective: save things that matter across conversations, not ephemeral details.\n'
-    '- Do NOT write to memory.md directly; it is auto-generated and will be overwritten.\n'
-)
-
-_PLANNING_BEHAVIOR = (
-    'Planning and task management:\n'
-    '- For any non-trivial task (research, multi-step work, analysis), create a plan FIRST using create_plan.\n'
-    '- Break complex requests into concrete, ordered steps. Each task should be ONE discrete action.\n'
-    '- When calling create_plan, separate tasks with the | character. Each segment becomes its own tracked task.\n'
-    '  CORRECT: "Research APIs | Design schema | Implement endpoints | Write tests"\n'
-    '  WRONG: "1. Research APIs 2. Design schema 3. Implement endpoints" (this creates ONE task with everything mashed together)\n'
-    '- Update task status as you work: mark tasks in_progress when you start, completed when done, '
-    'blocked when stuck.\n'
-    '- If new work emerges during execution, use add_task to track it.\n'
-    '- Show the user your plan before executing it. This makes your work transparent and reviewable.\n'
-)
-
-_DESIGN_BEHAVIOR = (
-    'Document design guidelines:\n'
-    '- All documents (PPTX, DOCX, XLSX, SVG) are auto-styled with the ThinxS design system '
-    '(dark teal palette, warm parchment surfaces, accent bars). You do not need to specify colors.\n'
-    '- For PPTX: use layout types strategically:\n'
-    '  * "title" for the opening slide (include subtitle if appropriate)\n'
-    '  * "section" for major topic dividers between content groups\n'
-    '  * "content" for standard slides with bullets and/or body text\n'
-    '  * "two_column" for comparisons, pros/cons, before/after (use left_heading, left_bullets, right_heading, right_bullets)\n'
-    '  * "blank" for custom or image-only slides\n'
-    '- Keep bullet points concise (max 6 per slide, max ~12 words each). Use body text for longer context.\n'
-    '- Always include speaker notes with additional context the presenter can reference.\n'
-    '- For DOCX: use structured sections with headings, bullets, and tables. The theme handles fonts and colors.\n'
-    '- For XLSX: just provide the data; headers are auto-styled with alternating row colors.\n'
-    '- For SVG: use the ThinxS palette (#0a1f1e, #14b8a6, #134e4a, #f5f0e8, #f59e0b) for consistency.\n'
-    '- When creating any document, think about visual hierarchy: what should the reader see first?\n'
-)
-
-_CLARIFICATION_BEHAVIOR = (
-    'Clarification protocol:\n'
-    '- Before diving into a complex or ambiguous request, ask 2-4 clarifying questions.\n'
-    '- Ask when: the scope is unclear, multiple valid interpretations exist, important constraints '
-    'are missing, or the request could go in very different directions.\n'
-    '- Do NOT ask when: the request is simple, specific, and unambiguous.\n'
-    '- Frame questions concisely. Number them. Wait for answers before proceeding.\n'
-    '- Example: "Before I start, a few questions:\\n'
-    '1. Do you want X or Y approach?\\n'
-    '2. Should I prioritize A or B?\\n'
-    '3. Any constraints I should know about?"\n'
-    '- After receiving answers, create a plan that reflects the clarified requirements, then execute.\n'
-)
-
-_BEHAVIORAL_CORE = (
-    'Core rules:\n'
-    '- Truth over satisfaction: never sacrifice accuracy for approval.\n'
-    '- Say "I don\'t know" when you do not know. Distinguish computation from pattern-matching.\n'
-    '- Present conclusions as proposals, not pronouncements. Respect user agency.\n'
-    '- Moderate tone: helpful without being effusive. Skepticism over enthusiasm.\n'
-    '- Obstacles are opportunities for analysis, not reasons to weaken claims.\n'
-    '- When a tool call fails (status="error"), do NOT silently continue. '
-    'Tell the user what failed and why, then try an alternative approach or ask for guidance.\n'
-    '- Acknowledge valid corrections; push back if a correction is wrong.\n'
-    '- Distinguish primary from secondary sources. Flag confidence levels.\n'
-    '- Direct assertions, no hedging. Concrete before abstract. Critical of claims, not persons.\n'
-    '- Never use em dashes; use colons, parentheses, or en dashes instead.\n'
-    '- Use markdown. Use lists only when content demands enumeration. '
-    'No symmetric reversals ("not X, but Y").\n'
-    '- When you use web_search or web_fetch, ALWAYS list your sources at the end of your response. '
-    'Format as a numbered "Sources" section with the title and URL of each page you referenced. '
-    'Do not just summarize what you found: cite where you found it so the user can verify.\n'
-)
-
-# Guide fragments indexed by key (for dynamic selection)
-GUIDE_BLOCKS = {
-    'behavioral_core': _BEHAVIORAL_CORE,
-    'design': _DESIGN_BEHAVIOR,
-    'memory': _MEMORY_BEHAVIOR,
-    'clarification': _CLARIFICATION_BEHAVIOR,
-    'planning': _PLANNING_BEHAVIOR,
-}
-
-_ALL_GUIDE_KEYS = list(GUIDE_BLOCKS.keys())
-
-# Mode identity headers (separated from guide blocks for dynamic composition)
-_MODE_HEADERS = {
-    'default': (
-        '# IDENTITY\n'
-        'You are **Nemo**, the ThinxAI assistant. You run on NVIDIA Nemotron.\n'
-        'You are NOT ChatGPT, not a generic AI, not an unnamed assistant.\n'
-        'Your name is Nemo. Always identify as Nemo when asked.\n'
-        'When asked who you are, say: "I\'m Nemo, the ThinxAI assistant. I run on NVIDIA Nemotron '
-        'and I\'m built for research, technical work, and creative tasks. I can read and write files, '
-        'run shell commands, search codebases, fetch web pages, create documents, and remember things '
-        'across conversations."\n'
-    ),
-    'technical': 'You are Nemo, the ThinxAI technical assistant running on NVIDIA Nemotron.\n',
-    'creative': 'You are Nemo, the ThinxAI creative assistant running on NVIDIA Nemotron.\n',
-    'research': 'You are Nemo, the ThinxAI research assistant running on NVIDIA Nemotron.\n',
-}
-
-_MODE_FOOTERS = {
-    'default': 'Mode: Default. Balanced tone. Provide clear, accurate, concise responses.',
-    'technical': (
-        'Mode: Technical. Prioritize accuracy over brevity. Include code examples when relevant. '
-        'Use structured formatting (headers, lists, code blocks). '
-        'Distinguish established facts from inferences.'
-    ),
-    'creative': (
-        'Mode: Creative. Write with vivid language, varied sentence structure, and narrative flow. '
-        'Take creative risks. Explore ideas from unexpected angles.'
-    ),
-    'research': (
-        'Mode: Research. Analyze claims carefully. Distinguish evidence from inference. '
-        'Cite reasoning steps explicitly. Flag assumptions. '
-        'When uncertain, state so clearly rather than speculating.'
-    ),
-}
-
-
-def _build_mode_prompt(mode_key: str, guide_keys: list[str] | None = None) -> str:
-    """Compose a system prompt from mode header + selected guide blocks + footer."""
-    header = _MODE_HEADERS.get(mode_key, _MODE_HEADERS['default'])
-    footer = _MODE_FOOTERS.get(mode_key, _MODE_FOOTERS['default'])
-    keys = guide_keys if guide_keys is not None else _ALL_GUIDE_KEYS
-
-    parts = [header, '\n', _CAPABILITIES, '\n']
-    for key in keys:
-        block = GUIDE_BLOCKS.get(key)
-        if block:
-            parts.append(block)
-            parts.append('\n')
-    parts.append(footer)
-    return ''.join(parts)
-
-
-MODES = {
-    'default': {
-        'name': 'Default',
-        'model': DEFAULT_MODEL,
-        'system_prompt': _build_mode_prompt('default'),
-        'temperature': 0.7,
-        'max_tokens': 2048,
-    },
-    'technical': {
-        'name': 'Technical',
-        'model': DEFAULT_MODEL,
-        'system_prompt': _build_mode_prompt('technical'),
-        'temperature': 0.3,
-        'max_tokens': 4096,
-    },
-    'creative': {
-        'name': 'Creative',
-        'model': DEFAULT_MODEL,
-        'system_prompt': _build_mode_prompt('creative'),
-        'temperature': 1.0,
-        'max_tokens': 4096,
-    },
-    'research': {
-        'name': 'Research',
-        'model': DEFAULT_MODEL,
-        'system_prompt': _build_mode_prompt('research'),
-        'temperature': 0.4,
-        'max_tokens': 4096,
-    },
-}
+# --- Behavioral Mode System (imported from mind_config.py) ---
+# All Mind configuration (system prompts, guide blocks, mode definitions,
+# temperature/token settings) lives in mind_config.py for structural 4M alignment.
 
 # --- Runtime Config ---
 CFG = {
@@ -495,6 +302,9 @@ CFG = {
     'mode': 'default',
     'custom_system_prompt': None,  # overrides mode prompt when set
 }
+
+# --- Inference Client (Means abstraction) ---
+_inference_client = NemotronClient(api_base=CFG['api_base'])
 
 # --- Circuit Breaker ---
 class CircuitBreaker:
@@ -558,8 +368,6 @@ ACTION_REMEMBER_RE = re.compile(
     re.DOTALL
 )
 
-INFERENCE_TIMEOUT = 120  # seconds
-
 # --- Web Fetch Config ---
 FETCH_TIMEOUT = 15  # seconds
 FETCH_MAX_BYTES = 500 * 1024  # 500 KB
@@ -605,8 +413,8 @@ def get_effective_system_prompt(guide_keys: list[str] | None = None) -> str:
     if CFG['custom_system_prompt']:
         base_prompt = CFG['custom_system_prompt']
     elif ENABLE_DYNAMIC_GUIDES and guide_keys is not None:
-        mode_key = CFG['mode'] if CFG['mode'] in _MODE_HEADERS else 'default'
-        base_prompt = _build_mode_prompt(mode_key, guide_keys)
+        mode_key = CFG['mode'] if CFG['mode'] in MODE_HEADERS else 'default'
+        base_prompt = build_mode_prompt(mode_key, guide_keys)
     else:
         mode = MODES.get(CFG['mode'], MODES['default'])
         base_prompt = mode['system_prompt']
@@ -643,6 +451,8 @@ def process_action_tags(text: str, clog: CorrelatedLogger) -> tuple[str, list[st
             result = memory_store.upsert_entry(entry_type.strip(), name.strip(), description.strip(), content.strip())
             actions.append(f'Remembered: {name.strip()} ({entry_type.strip()})')
             clog.info('Memory stored: type=%s name=%s', entry_type.strip(), name.strip())
+            # Ch2: Mind -> Memory (persistence via action tag)
+            channels.log_memory_persist(clog._cid, entry_type.strip(), name.strip())
         except Exception as e:
             actions.append(f'Failed to remember {name.strip()}: {e}')
             clog.error('Memory store failed: %s', e)
@@ -786,21 +596,34 @@ async def handle_chat(request: web.Request) -> web.Response:
         effective_intent = _context_state.update(detected_intent)
         guide_keys = get_relevant_guides(effective_intent)
         tool_subset = get_relevant_tools(effective_intent)
+        tool_count_str = 'all' if tool_subset is None else str(len(tool_subset))
         clog.info('Intent: detected=%s effective=%s guides=%s tools=%s',
-                  detected_intent, effective_intent,
-                  guide_keys, 'all' if tool_subset is None else len(tool_subset))
+                  detected_intent, effective_intent, guide_keys, tool_count_str)
+        channels.log_intent_selection(cid, detected_intent, effective_intent, guide_keys, tool_count_str)
+        # Mission coherence check (Ch4): flag if intent mismatches active mode
+        coherent, reason = check_coherence(effective_intent, CFG['mode'])
+        channels.log_coherence_check(cid, effective_intent, CFG['mode'], coherent, reason)
+        if not coherent:
+            clog.warning('Mission coherence: %s', reason)
     else:
         guide_keys = None
         tool_subset = None
 
     # Build messages with token-aware windowing
     global _running_summary
-    system_msg = {'role': 'system', 'content': get_effective_system_prompt(guide_keys)}
+    system_prompt = get_effective_system_prompt(guide_keys)
+    # Ch1: Memory -> Mind (context injection)
+    mem_block = memory_store.build_context_block()
+    if mem_block:
+        channels.log_memory_inject(cid, len(mem_block))
+    system_msg = {'role': 'system', 'content': system_prompt}
     masked = mask_observations(list(conversation))
     windowed, evicted = window_by_tokens(masked, HISTORY_TOKEN_BUDGET)
 
     if evicted:
         _running_summary = await build_running_summary(evicted, _running_summary)
+        # Ch2: Mind -> Memory (running summary)
+        channels.log_summary_persist(cid, len(_running_summary))
 
     messages = [system_msg]
     if _running_summary:
@@ -858,110 +681,58 @@ def _emit_event(job: dict, event_type: str, data: dict):
     job['notify'].set()
 
 
-@dataclass
-class InferenceResult:
-    """Result from a single inference call."""
-    text: str
-    tool_calls: list[dict]  # [{id, name, arguments_str}]
-    error: bool = False
-
-
-async def _call_inference(session: aiohttp.ClientSession, model: str, messages: list,
+async def _call_inference(model: str, messages: list,
                           temperature: float, max_tokens: int, job: dict, clog,
                           tools: list[dict] | None = None) -> InferenceResult:
-    """Single inference call. Streams tokens to job SSE. Returns InferenceResult."""
+    """Single inference call via abstracted client. Streams tokens to job SSE."""
     full_response = []
     native_tool_calls: dict[int, dict] = {}  # index -> {id, name, arguments_parts}
+    had_error = False
 
-    try:
-        payload = {
-            'model': model,
-            'messages': messages,
-            'stream': True,
-            'temperature': temperature,
-            'max_tokens': max_tokens,
-        }
-        if tools:
-            payload['tools'] = tools
+    async for event in _inference_client.stream_completion(
+        model=model, messages=messages, temperature=temperature,
+        max_tokens=max_tokens, tools=tools, timeout=INFERENCE_TIMEOUT,
+    ):
+        if event.type == 'error':
+            inference_breaker.record_failure()
+            _emit_event(job, 'error', {'message': event.data.get('message', 'Unknown error')})
+            clog.error('Inference error: %s', event.data.get('message', '')[:200])
+            return InferenceResult(text='', tool_calls=[], error=True)
 
-        async with session.post(
-            f'{CFG["api_base"]}/v1/chat/completions',
-            json=payload,
-            timeout=aiohttp.ClientTimeout(total=INFERENCE_TIMEOUT)
-        ) as resp:
-            if resp.status != 200:
-                error_text = await resp.text()
-                inference_breaker.record_failure()
-                _emit_event(job, 'error', {'message': f'API error {resp.status}: {error_text}'})
-                clog.error('API error %d: %s', resp.status, error_text[:200])
-                return InferenceResult(text='', tool_calls=[], error=True)
+        if event.type == 'reasoning':
+            _emit_event(job, 'reasoning', {'content': event.data['content']})
+        elif event.type == 'content':
+            full_response.append(event.data['content'])
+            _emit_event(job, 'content', {'content': event.data['content']})
+        elif event.type == 'tool_call_delta':
+            tc_delta = event.data
+            idx = tc_delta.get('index', 0)
+            if idx not in native_tool_calls:
+                native_tool_calls[idx] = {
+                    'id': tc_delta.get('id', ''),
+                    'name': '',
+                    'arguments_parts': [],
+                }
+            entry = native_tool_calls[idx]
+            if tc_delta.get('id'):
+                entry['id'] = tc_delta['id']
+            func = tc_delta.get('function', {})
+            if func.get('name'):
+                entry['name'] = func['name']
+            if func.get('arguments'):
+                entry['arguments_parts'].append(func['arguments'])
+        elif event.type == 'usage':
+            usage = event.data
+            _emit_event(job, 'usage', {
+                'prompt_tokens': usage.get('prompt_tokens', 0),
+                'completion_tokens': usage.get('completion_tokens', 0),
+            })
+            log_token_usage(clog._cid, model,
+                            usage.get('prompt_tokens', 0),
+                            usage.get('completion_tokens', 0))
 
-            inference_breaker.record_success()
-
-            async for line in resp.content:
-                line = line.decode('utf-8').strip()
-                if not line.startswith('data: '):
-                    continue
-                data = line[6:]
-                if data == '[DONE]':
-                    break
-
-                try:
-                    chunk = json.loads(data)
-                    delta = chunk.get('choices', [{}])[0].get('delta', {})
-
-                    if delta.get('reasoning_content'):
-                        _emit_event(job, 'reasoning', {'content': delta['reasoning_content']})
-
-                    if delta.get('content'):
-                        full_response.append(delta['content'])
-                        _emit_event(job, 'content', {'content': delta['content']})
-
-                    # Accumulate native tool calls from streaming deltas
-                    for tc_delta in delta.get('tool_calls', []):
-                        idx = tc_delta.get('index', 0)
-                        if idx not in native_tool_calls:
-                            native_tool_calls[idx] = {
-                                'id': tc_delta.get('id', ''),
-                                'name': '',
-                                'arguments_parts': [],
-                            }
-                        entry = native_tool_calls[idx]
-                        if tc_delta.get('id'):
-                            entry['id'] = tc_delta['id']
-                        func = tc_delta.get('function', {})
-                        if func.get('name'):
-                            entry['name'] = func['name']
-                        if func.get('arguments'):
-                            entry['arguments_parts'].append(func['arguments'])
-
-                    usage = chunk.get('usage')
-                    if usage:
-                        _emit_event(job, 'usage', {
-                            'prompt_tokens': usage.get('prompt_tokens', 0),
-                            'completion_tokens': usage.get('completion_tokens', 0),
-                        })
-                        log_token_usage(clog._cid, model,
-                                        usage.get('prompt_tokens', 0),
-                                        usage.get('completion_tokens', 0))
-                except json.JSONDecodeError:
-                    continue
-
-    except asyncio.TimeoutError:
-        inference_breaker.record_failure()
-        _emit_event(job, 'error', {'message': f'Inference timed out after {INFERENCE_TIMEOUT}s'})
-        clog.error('Inference timeout after %ds', INFERENCE_TIMEOUT)
-        return InferenceResult(text='', tool_calls=[], error=True)
-    except aiohttp.ClientError as e:
-        inference_breaker.record_failure()
-        _emit_event(job, 'error', {'message': f'Connection error: {e}'})
-        clog.error('Connection error: %s', e)
-        return InferenceResult(text='', tool_calls=[], error=True)
-    except Exception as e:
-        inference_breaker.record_failure()
-        _emit_event(job, 'error', {'message': f'Unexpected error: {e}'})
-        clog.error('Unexpected error: %s', e)
-        return InferenceResult(text='', tool_calls=[], error=True)
+    # Record success if we got here without error
+    inference_breaker.record_success()
 
     # Assemble native tool calls
     assembled_calls = []
@@ -992,119 +763,126 @@ async def _process_chat_job(job_id: str, model: str, messages: list, temperature
     final_text = ''
     iteration = 0
 
-    async with aiohttp.ClientSession() as session:
-        while iteration < MAX_TOOL_ITERATIONS:
-            iteration += 1
+    while iteration < MAX_TOOL_ITERATIONS:
+        iteration += 1
 
-            trace.prompt(messages, iteration)
-            result = await _call_inference(session, model, messages, temperature, max_tokens, job, clog,
-                                           tools=openai_tools)
-            if result.error:
-                trace.log('error', {'iteration': iteration, 'message': 'inference error'})
-                job['done'] = True
-                job['notify'].set()
-                return
+        trace.prompt(messages, iteration)
+        result = await _call_inference(model, messages, temperature, max_tokens, job, clog,
+                                       tools=openai_tools)
+        if result.error:
+            trace.log('error', {'iteration': iteration, 'message': 'inference error'})
+            job['done'] = True
+            job['notify'].set()
+            return
 
-            trace.response(result.text, iteration)
+        trace.response(result.text, iteration)
 
-            # Process action tags (memory) in text content
-            cleaned_text, actions = process_action_tags(result.text, clog)
-            for action in actions:
-                _emit_event(job, 'action', {'message': action})
+        # Process action tags (memory) in text content
+        cleaned_text, actions = process_action_tags(result.text, clog)
+        for action in actions:
+            _emit_event(job, 'action', {'message': action})
 
-            # --- Native tool calls (preferred) ---
-            if result.tool_calls:
-                clog.info('Iteration %d: %d native tool call(s)', iteration, len(result.tool_calls))
+        # --- Native tool calls (preferred) ---
+        if result.tool_calls:
+            clog.info('Iteration %d: %d native tool call(s)', iteration, len(result.tool_calls))
 
-                # Build the assistant message with tool_calls for conversation history
-                assistant_msg = {'role': 'assistant', 'content': cleaned_text or None}
-                assistant_msg['tool_calls'] = [
-                    {
-                        'id': tc['id'],
-                        'type': 'function',
-                        'function': {
-                            'name': tc['name'],
-                            'arguments': tc['arguments_str'],
-                        },
-                    }
-                    for tc in result.tool_calls
-                ]
-                messages.append(assistant_msg)
+            # Build the assistant message with tool_calls for conversation history
+            assistant_msg = {'role': 'assistant', 'content': cleaned_text or None}
+            assistant_msg['tool_calls'] = [
+                {
+                    'id': tc['id'],
+                    'type': 'function',
+                    'function': {
+                        'name': tc['name'],
+                        'arguments': tc['arguments_str'],
+                    },
+                }
+                for tc in result.tool_calls
+            ]
+            messages.append(assistant_msg)
 
-                for tc in result.tool_calls:
-                    try:
-                        args = json.loads(tc['arguments_str'])
-                    except json.JSONDecodeError:
-                        args = {}
-                        clog.warning('Failed to parse tool args for %s: %s', tc['name'], tc['arguments_str'][:100])
+            for tc in result.tool_calls:
+                try:
+                    args = json.loads(tc['arguments_str'])
+                except json.JSONDecodeError:
+                    args = {}
+                    clog.warning('Failed to parse tool args for %s: %s', tc['name'], tc['arguments_str'][:100])
 
-                    _emit_event(job, 'tool_call', {'name': tc['name'], 'args': args})
-                    clog.info('Executing tool: %s(%s)', tc['name'], json.dumps(args)[:200])
-                    trace.tool_call(tc['name'], args, iteration)
+                _emit_event(job, 'tool_call', {'name': tc['name'], 'args': args})
+                clog.info('Executing tool: %s(%s)', tc['name'], json.dumps(args)[:200])
+                trace.tool_call(tc['name'], args, iteration)
 
-                    exec_result = await TOOL_REGISTRY.execute(tc['name'], args)
-
-                    result_text = json.dumps(exec_result, default=str)[:4000]
-                    _emit_event(job, 'tool_result', {'name': tc['name'], 'result': exec_result})
-                    clog.info('Tool %s result: success=%s', tc['name'], exec_result.get('success', False))
-                    trace.tool_result(tc['name'], exec_result, iteration)
-
-                    # Send result back as role: "tool" message (OpenAI format)
-                    messages.append({
-                        'role': 'tool',
-                        'tool_call_id': tc['id'],
-                        'content': result_text,
-                    })
-
-                _emit_event(job, 'status', {'message': f'Processing tool results (iteration {iteration})...'})
-                continue
-
-            # --- Fallback: text-based tool call parsing ---
-            text_without_tools, parsed_calls = ToolCallParser.parse(cleaned_text)
-
-            if not parsed_calls:
-                # No tool calls: this is the final response
-                final_text = cleaned_text
-                break
-
-            clog.info('Iteration %d: %d text-parsed tool call(s) (fallback)', iteration, len(parsed_calls))
-            messages.append({'role': 'assistant', 'content': result.text})
-
-            tool_results = []
-            for tc in parsed_calls:
-                _emit_event(job, 'tool_call', {'name': tc.name, 'args': tc.args})
-                clog.info('Executing tool: %s(%s)', tc.name, json.dumps(tc.args)[:200])
-                trace.tool_call(tc.name, tc.args, iteration)
-
-                exec_result = await TOOL_REGISTRY.execute(tc.name, tc.args)
+                exec_result = await TOOL_REGISTRY.execute(tc['name'], args)
 
                 result_text = json.dumps(exec_result, default=str)[:4000]
-                _emit_event(job, 'tool_result', {'name': tc.name, 'result': exec_result})
-                clog.info('Tool %s result: success=%s', tc.name, exec_result.get('success', False))
-                trace.tool_result(tc.name, exec_result, iteration)
+                _emit_event(job, 'tool_result', {'name': tc['name'], 'result': exec_result})
+                clog.info('Tool %s result: success=%s', tc['name'], exec_result.get('success', False))
+                trace.tool_result(tc['name'], exec_result, iteration)
 
-                if exec_result.get('success', False):
-                    tool_feedback = f'<tool_result name="{tc.name}" status="success">\n{result_text}\n</tool_result>'
-                else:
-                    error_msg = exec_result.get('error', 'Unknown error')
-                    tool_feedback = (
-                        f'<tool_result name="{tc.name}" status="error">\n'
-                        f'ERROR: Tool "{tc.name}" failed: {error_msg}\n'
-                        f'Full result: {result_text}\n'
-                        f'You should inform the user about this error or try a different approach.\n'
-                        f'</tool_result>'
-                    )
-                tool_results.append(tool_feedback)
+                # Send result back as role: "tool" message (OpenAI format)
+                messages.append({
+                    'role': 'tool',
+                    'tool_call_id': tc['id'],
+                    'content': result_text,
+                })
 
-            results_block = '\n'.join(tool_results)
-            messages.append({'role': 'user', 'content': results_block})
             _emit_event(job, 'status', {'message': f'Processing tool results (iteration {iteration})...'})
+            continue
 
-        else:
-            # Hit max iterations
-            clog.warning('Hit max tool iterations (%d)', MAX_TOOL_ITERATIONS)
-            _emit_event(job, 'status', {'message': 'Reached tool iteration limit'})
-            final_text = text_without_tools if 'text_without_tools' in dir() and text_without_tools else 'I reached the maximum number of tool iterations. Here is what I found so far.'
+        # --- Fallback: text-based tool call parsing ---
+        text_without_tools, parsed_calls = ToolCallParser.parse(cleaned_text)
+
+        if not parsed_calls:
+            # No tool calls: this is the final response
+            final_text = cleaned_text
+            break
+
+        clog.info('Iteration %d: %d text-parsed tool call(s) (fallback)', iteration, len(parsed_calls))
+        messages.append({'role': 'assistant', 'content': result.text})
+
+        tool_results = []
+        for tc in parsed_calls:
+            _emit_event(job, 'tool_call', {'name': tc.name, 'args': tc.args})
+            clog.info('Executing tool: %s(%s)', tc.name, json.dumps(tc.args)[:200])
+            trace.tool_call(tc.name, tc.args, iteration)
+
+            exec_result = await TOOL_REGISTRY.execute(tc.name, tc.args)
+
+            result_text = json.dumps(exec_result, default=str)[:4000]
+            _emit_event(job, 'tool_result', {'name': tc.name, 'result': exec_result})
+            clog.info('Tool %s result: success=%s', tc.name, exec_result.get('success', False))
+            trace.tool_result(tc.name, exec_result, iteration)
+
+            if exec_result.get('success', False):
+                tool_feedback = f'<tool_result name="{tc.name}" status="success">\n{result_text}\n</tool_result>'
+            else:
+                error_msg = exec_result.get('error', 'Unknown error')
+                tool_feedback = (
+                    f'<tool_result name="{tc.name}" status="error">\n'
+                    f'ERROR: Tool "{tc.name}" failed: {error_msg}\n'
+                    f'Full result: {result_text}\n'
+                    f'You should inform the user about this error or try a different approach.\n'
+                    f'</tool_result>'
+                )
+            tool_results.append(tool_feedback)
+
+        results_block = '\n'.join(tool_results)
+        messages.append({'role': 'user', 'content': results_block})
+        _emit_event(job, 'status', {'message': f'Processing tool results (iteration {iteration})...'})
+
+    else:
+        # Hit max iterations
+        clog.warning('Hit max tool iterations (%d)', MAX_TOOL_ITERATIONS)
+        _emit_event(job, 'status', {'message': 'Reached tool iteration limit'})
+        final_text = text_without_tools if 'text_without_tools' in dir() and text_without_tools else 'I reached the maximum number of tool iterations. Here is what I found so far.'
+
+    # Morals post-check: validate output before delivery (Ch3: Morals->Mind)
+    if final_text:
+        validation = output_validator.validate_output(final_text, cid=cid)
+        if not validation.passed:
+            clog.warning('Output validation flagged %d violation(s): %s',
+                         len(validation.violations), '; '.join(validation.violations))
+            final_text = output_validator.redact_secrets(final_text)
 
     # Store final response in conversation
     # Token windowing handles context selection at query time;
@@ -1201,6 +979,7 @@ async def handle_config(request: web.Request) -> web.Response:
         CFG['model'] = body['model']
     if 'api_base' in body:
         CFG['api_base'] = body['api_base']
+        _inference_client.api_base = body['api_base']
     if 'temperature' in body:
         CFG['temperature_override'] = float(body['temperature'])
     return web.json_response({'status': 'updated'})

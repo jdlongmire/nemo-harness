@@ -178,3 +178,32 @@ def get_relevant_tools(intent: str) -> set[str] | None:
 def get_relevant_guides(intent: str) -> list[str]:
     """Return guide keys relevant to the intent."""
     return INTENT_GUIDES.get(intent, INTENT_GUIDES['conversation'])
+
+
+# --- Mission Coherence Check ---
+
+# Modes that have strong affinity with certain intents.
+# Intents NOT listed are considered weakly coherent (flagged but allowed).
+_MODE_INTENT_AFFINITY: dict[str, set[str]] = {
+    'default': set(INTENTS),  # default mode is coherent with everything
+    'technical': {'coding', 'document', 'research', 'planning', 'git', 'conversation'},
+    'creative': {'document', 'conversation', 'planning'},
+    'research': {'research', 'document', 'conversation', 'planning'},
+}
+
+
+def check_coherence(intent: str, mode: str) -> tuple[bool, str]:
+    """Check if the detected intent is coherent with the active mode.
+
+    Returns (is_coherent, reason). Incoherent combinations are flagged
+    but not rejected (the classifier never blocks, only warns).
+
+    This addresses Gap 3 from the conformance audit:
+    "No mission coherence validation (classifier never rejects)."
+    """
+    affinity = _MODE_INTENT_AFFINITY.get(mode, set(INTENTS))
+    if intent in affinity:
+        return True, ''
+
+    reason = f'intent={intent} has low affinity with mode={mode}'
+    return False, reason
